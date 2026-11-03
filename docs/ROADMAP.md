@@ -2,7 +2,7 @@
 
 The authoritative product intent for this milestone is `docs/PRODUCT_SCOPE.md`, reproduced directly from the user-provided specification. This map does not assert that a listed product capability has been built merely because an upstream engine offers it.
 
-## Milestone A: local alpha — implemented in this source package
+## Milestone A: local alpha — implemented and published on GitHub
 
 - Go control-plane server, authenticated loopback API, security headers and bounded command execution
 - Local responsive dashboard, engine availability, recent job history and operation submission
@@ -47,6 +47,6 @@ A successful compile or test is not a stable release. Accept each target only af
 
 - Go build, race detector tests and vet pass in the isolated local development environment.
 - Rclone 1.75.2 local-to-local copy, check, sync dry-run, actual sync and post-sync file comparison passed in a disposable directory on an authorized Linux laptop.
-- Kopia 0.23.1 signature/checksum verification, encrypted local repository creation, snapshot creation/listing, reserved-path restore, SHA-256 equality and 100% verification **passed through the engine CLI**. Real invocation through the GoreeCloud Backup API and cloud-provider integration remain unverified.
-- Initial public GitHub writes were temporarily blocked, then an accurate alpha-status README update succeeded. Repository source publication and CI must be verified against the live default branch independently of this local package.
-- See `docs/TEST_EVIDENCE_2026-11-03.md` for the test scope and limitations; `scripts/smoke-local-kopia.sh` and `scripts/smoke-local-rclone.sh` capture reproducible disposable acceptance workflows.
+- Kopia 0.23.1 signature/checksum verification, encrypted local repository creation, snapshot creation/listing, reserved-path restore, SHA-256 equality and 100% verification **passed directly through the engine CLI**. A subsequent combined API-to-engine smoke test also passed authenticated Kopia backup/list/restore and Rclone copy/check/preview/sync against disposable local data. Real cloud-provider integration remains unverified.
+- All original 21 alpha source files were published to public GitHub main at `8921fc2`, fetched and compared exactly against staged source, and the initial GitHub Actions Verify run passed. A separately published Python API-to-engine smoke script was also run successfully. Later commit CI status is evaluated independently.
+- See `docs/TEST_EVIDENCE_2026-11-03.md` for the test scope and limitations; `scripts/smoke-local-kopia.sh`, `scripts/smoke-local-rclone.sh` and `scripts/smoke-api-e2e.py` capture reproducible disposable acceptance workflows.
