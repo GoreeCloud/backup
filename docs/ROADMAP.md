@@ -50,3 +50,7 @@ A successful compile or test is not a stable release. Accept each target only af
 - Kopia 0.23.1 signature/checksum verification, encrypted local repository creation, snapshot creation/listing, reserved-path restore, SHA-256 equality and 100% verification **passed directly through the engine CLI**. A subsequent combined API-to-engine smoke test also passed authenticated Kopia backup/list/restore and Rclone copy/check/preview/sync against disposable local data. Real cloud-provider integration remains unverified.
 - All original 21 alpha source files were published to public GitHub main at `8921fc2`, fetched and compared exactly against staged source, and the initial GitHub Actions Verify run passed. A separately published Python API-to-engine smoke script was also run successfully. Later commit CI status is evaluated independently.
 - See `docs/TEST_EVIDENCE_2026-11-03.md` for the test scope and limitations; `scripts/smoke-local-kopia.sh`, `scripts/smoke-local-rclone.sh` and `scripts/smoke-api-e2e.py` capture reproducible disposable acceptance workflows.
+
+## Cancellation milestone (development alpha)
+
+Implemented authenticated, best-effort cancellation for queued and running jobs; the dashboard shows cancellation state and an operator action. Queued cancellation prevents job execution. Opt-in private journal records cancellation outcomes; after an interruption the operator must verify actual storage effects. Full rollback and reliable recovery across process restarts remain out of scope. See `docs/JOB_CANCELLATION.md`.
