@@ -115,6 +115,16 @@ Kopia: https://github.com/kopia/kopia | Rclone: https://github.com/rclone/rclone
 
 **Local path safeguards:** local-to-local file operations resolve symlink aliases and reject overlapping source/destination directories, including paths with missing children. The engine rechecks immediately before launch; this does not eliminate filesystem races during a transfer. See `docs/SECURITY.md`.
 
+**Opt-in durable Linux schedule ledger:** A new `goreecloud-backup-scheduler`
+one-shot command accepts an owner-only JSON policy file, checks 60-minute to
+7-day UTC slots, and records fsynced at-most-once claims in a separate private
+status-only state file. Disabled/missed policies are skipped and uncertain
+claims after restart are marked interrupted without automatic replay. A
+separately reviewed five-minute systemd user-timer example is provided but
+**not installed or enabled**. It is not yet the integrated scheduling UI,
+policy database, guaranteed-delivery or production recovery system. See
+[UTC scheduling and recovery limitations](docs/DURABLE_SCHEDULING.md).
+
 **Optional Linux scheduling:** the separately built `goreecloud-backup-trigger` client submits a snapshot through the authenticated loopback API and waits for completion. It can optionally follow a successful snapshot with structural verification (`-verify-after=structure`) or, with explicit cloud-cost acknowledgment, full repository verification (`-verify-after=full -acknowledge-full-verification-cost`). The default is **no automatic verification**. Reviewed systemd *examples* provide opt-in timer configuration; nothing is installed or enabled by default. See [local scheduling and safety](docs/LOCAL_SCHEDULING.md).
 
 **Storage-backed verification:** GoreeCloud Backup now runs Kopia structure/full checks with a fresh private temporary cache rather than relying on previously cached content that can mask on-disk corruption. The user's existing Kopia cache is never cleared. A disposable corruption drill is available at `scripts/smoke-cache-isolation.py`. Tests remain local Linux acceptance, not proof of production/cloud resilience.

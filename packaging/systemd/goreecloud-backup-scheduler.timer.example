@@ -1,0 +1,13 @@
+# EXAMPLE ONLY. Strict UTC slots are defined by the private policy file.
+[Unit]
+Description=GoreeCloud Backup — opt-in UTC policy scan every five minutes
+
+[Timer]
+OnCalendar=*:0/5
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=false
+Unit=goreecloud-backup-scheduler.service
+
+[Install]
+WantedBy=timers.target

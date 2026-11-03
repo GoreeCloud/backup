@@ -1,0 +1,13 @@
+# EXAMPLE ONLY. Do not enable or install automatically.
+# Run as the backup operator on a trusted Linux host with loopback API active.
+# Private policy file contains local source paths. Never put credentials here.
+[Unit]
+Description=GoreeCloud Backup — guarded opt-in UTC backup schedules
+Documentation=https://github.com/GoreeCloud/backup/blob/main/docs/DURABLE_SCHEDULING.md
+
+[Service]
+Type=oneshot
+ExecStart=/ABSOLUTE/PATH/goreecloud-backup-scheduler -run-due -config=%h/.config/goreecloud-backup/schedules.json -state-dir=%h/.local/state/goreecloud-backup/scheduler -token-file=%h/.config/goreecloud-backup/management-token
+NoNewPrivileges=true
+UMask=0077
+TimeoutStartSec=4h

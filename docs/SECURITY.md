@@ -97,3 +97,32 @@ risk, not the integrity behavior of every cloud backend or remote caching
 layer. Fresh verification may need significant temporary disk space and may
 incur additional storage requests or cloud egress charges. Do not promote
 this alpha to production based solely on a passing integrity check.
+
+## Opt-in Linux at-most-once schedule ledger
+
+The separately built `goreecloud-backup-scheduler` never starts on its
+own. An explicit `-run-due` action with an owner-only mode-0600 private JSON
+configuration and loopback management token reads at most four policies.
+Config contains source paths and is **sensitive**. The distinct private
+0700 status directory stores a mode-0600 JSON ledger of policy identifiers,
+UTC slots, last outcomes, and job IDs only; it does not store source paths
+or credentials. No at-rest encryption is supplied.
+
+The Linux `flock` lock prevents simultaneous local invocations. Every
+eligible slot is durably fsynced/claimed **before** submitting a snapshot;
+a crash can therefore leave an `interrupted` claim, and that slot is
+deliberately not retried automatically. An absent ledger after prior
+initialization fails closed rather than reinitializing silently; a malformed,
+symlinked or group/world-readable ledger also fails. Recovery requires
+independent inspection of the real backup repository. False scheduling
+success, source-file replacement by a privileged local process, rollback
+of an entire private directory, or a malicious same-UID process are outside
+this local trust boundary.
+
+A 10-minute UTC grace period and explicit disabled-by-default configuration
+limit accidental catch-up. Missing windows are skipped; **exactly-once backup
+execution or guaranteed delivery is not claimed**. A time-limited trigger may
+leave Kopia running after its scheduler process dies, and a completed
+snapshot may still fail an integrity check. The operator must test restores.
+
+See `docs/DURABLE_SCHEDULING.md` for manual installation and limitations.

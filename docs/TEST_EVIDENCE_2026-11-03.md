@@ -181,3 +181,38 @@ This is not cloud backend acceptance, a repair feature, proof of fault
 resilience on every platform, or a substitute for an independent restore.
 See official Kopia documentation: https://kopia.io/docs/advanced/caching/
 and https://kopia.io/docs/advanced/consistency/.
+
+## Opt-in durable UTC schedule foundation — isolated Linux acceptance
+
+On November 3, 2026, the new `goreecloud-backup-scheduler` code was tested
+in isolation on the authorized Linux workstation. Go race tests exercised
+private JSON policy reading, permission/symlink/size rejection, strict UTC
+slot alignment and missed-run grace, policy validation, Linux file-lock
+contention, fsynced at-most-once claims, simulated crash/restart recovery,
+disabled policy handling, error status persistence, cancellation, and
+fail-closed behavior when an existing schedule ledger disappears.
+
+A separate disposable real-engine acceptance script
+(`scripts/smoke-scheduler.py`) used the previously checksum- and
+GPG-signature-verified Kopia 0.23.1 binary and an authenticated loopback
+control-plane API. It created a new encrypted local repository, checked
+a private policy file without any side effects, and ran two explicitly
+enabled due policies with a single UTC slot. It completed **two encrypted
+snapshot jobs and one structural verification**. A disabled policy and a
+policy whose UTC window had been missed were skipped. Re-invoking the
+one-shot schedule controller in a fresh process within the same slot
+submitted **no duplicate backup jobs**. The status-only ledger and
+management journal excluded source paths and bearer tokens. Result:
+
+`PASS: validated private opt-in UTC policies and disabled/missed gating`
+
+`PASS: two snapshots plus structural verification through real Kopia API`
+
+`PASS: repeated one-shot invocation skipped the already-claimed slot`
+
+`PASS: private state-only ledger and job journal exclude paths/tokens`
+
+The script exited **0** and removed its disposable repository and service.
+No systemd timer, cloud account, production storage or VPS was changed.
+This is local Linux **at-most-once slot acceptance**, not proof of
+exactly-once execution, production scheduler durability or remote recovery.

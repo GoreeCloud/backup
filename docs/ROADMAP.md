@@ -26,6 +26,18 @@ The authoritative product intent for this milestone is `docs/PRODUCT_SCOPE.md`, 
 
 A separately built trigger CLI and systemd user-timer example provide a **manual opt-in** path for periodic snapshots, now with optional sequential structure/full verification after successful backup. Full verification requires explicit cost acknowledgment; no verification is enabled by default. These are not a scheduler API, persistent policy database, missed-run reconciliation, fleet orchestration, or automatic deployment. See `docs/LOCAL_SCHEDULING.md`.
 
+## Partial Milestone B: durable at-most-once Linux schedule slots
+
+An **opt-in** Linux one-shot schedule controller now reads at most four
+explicitly enabled private local policies, executes only within their
+10-minute UTC windows, and writes an atomic, private status-only claim before
+admission. An OS-level file lock prevents concurrent invocations. Crashed
+claims are marked interrupted, not replayed, and missing existing state is
+rejected. A noninstalled five-minute systemd user-timer template and
+disposable real-Kopia acceptance script are provided. This remains short of
+a full durable scheduler API/database, notifications, missed-run recovery,
+multiple hosts and production deployment. See `docs/DURABLE_SCHEDULING.md`.
+
 ## Milestone C: protected multi-device environment — not yet implemented
 
 - Agent enrollment and authenticated service communications over GoreeCloud VPN
