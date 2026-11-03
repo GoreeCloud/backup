@@ -51,7 +51,7 @@
       const jobs = recent.jobs;
       $('total-count').textContent = jobs.length;
       $('completed-count').textContent = jobs.filter(j => j.status === 'completed').length;
-      $('running-count').textContent = jobs.filter(j => ['queued','running'].includes(j.status)).length;
+      $('running-count').textContent = jobs.filter(j => ['queued','running','cancelling'].includes(j.status)).length;
       $('service-state').textContent = 'Connected';
       for (const engine of ['kopia','rclone']) {
         const el = $(engine+'-state');
@@ -76,6 +76,20 @@
       const head = document.createElement('div'); head.className = 'job-head';
       head.append(label(job.type.replaceAll('-',' '),'job-title'), label(job.status,'job-status '+job.status));
       item.append(head);
+      if (['queued','running'].includes(job.status)) {
+        const cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.className = 'button minimal cancel-job';
+        cancelButton.textContent = 'Cancel operation';
+        cancelButton.setAttribute('aria-label', `Cancel ${job.type} operation ${job.id}`);
+        cancelButton.addEventListener('click', async () => {
+          cancelButton.disabled = true;
+          cancelButton.textContent = 'Requesting cancellation…';
+          try { await api(`/jobs/${encodeURIComponent(job.id)}/cancel`, {method:'POST'}); await refresh(); }
+          catch (err) { cancelButton.textContent = err.message; cancelButton.disabled = false; }
+        });
+        item.append(cancelButton);
+      }
       const time = document.createElement('div'); time.className='job-time';
       time.textContent = `${new Date(job.started_at).toLocaleString()} · ${job.id}`; item.append(time);
       if (job.error || job.output) {

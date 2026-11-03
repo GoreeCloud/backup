@@ -89,12 +89,12 @@ func OpenJobJournal(dir string) (*JobJournal, []*Job, error) {
 		}
 		seen[record.ID] = true
 		switch record.Status {
-		case "queued", "running":
+		case "queued", "running", "cancelling":
 			record.Status = "interrupted"
 			now := time.Now().UTC()
 			record.CompletedAt = &now
 			interrupted = true
-		case "completed", "failed", "interrupted":
+		case "completed", "failed", "cancelled", "interrupted":
 		default:
 			return nil, nil, errors.New("state file contains unsupported job status")
 		}
