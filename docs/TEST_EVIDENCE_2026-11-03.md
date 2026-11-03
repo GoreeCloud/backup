@@ -95,3 +95,7 @@ GitHub Actions [Verify run 41653767437](https://github.com/GoreeCloud/backup/act
 - Rendered overview and operation states were captured and visually inspected, including the authenticated mobile layout.
 - The dashboard copy was corrected to distinguish in-memory job output from optional private status-only history retained across restarts; cancellation and interrupted status badges reuse existing GoreeCloud UI semantic colors.
 - The test used stub executables, not a production repository or actual remote storage. No public network exposure, production deployment, complete GC UI component/token adoption, extensive accessibility audit, or mobile native application acceptance is claimed.
+
+## Follow-up: verification API smoke coverage (pending live execution)
+
+The disposable `scripts/smoke-api-e2e.py` was extended to call the newly implemented `verify-structure` and confirmed `verify-full` API jobs after creating an encrypted fixture snapshot. It also asserts that unconfirmed full verification is rejected with HTTP 422. CI syntax verification and the existing fake-executor Go test suite cover correctness of these changes, **not** a live Kopia engine invocation for the new endpoints. An independent run with trusted Kopia and Rclone remains an open acceptance requirement.

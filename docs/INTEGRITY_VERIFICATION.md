@@ -16,3 +16,9 @@ Results appear in the job history. The current dashboard displays bounded engine
 Official Kopia documentation:
 - https://kopia.io/docs/advanced/consistency/
 - https://kopia.io/docs/reference/command-line/common/snapshot-verify/
+
+## Opt-in real-engine acceptance
+
+With trusted `kopia` and `rclone` executables available, an operator can run `python3 scripts/smoke-api-e2e.py` from the checked-out source. It creates a **disposable encrypted local repository** and a loopback API, then exercises structural/full verification, file restoration, transfer verification, and safeguarded synchronization. Its source and destination are temporary fixtures; it must never use an existing repository or cloud remote.
+
+The GitHub CI workflow validates script syntax but **does not execute** this live-engine acceptance script. Actual execution and recorded restore verification are required before claiming the new API verification operations are accepted end to end.

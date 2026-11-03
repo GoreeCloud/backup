@@ -18,6 +18,8 @@ jobs:
         run: sha256sum --check SHA256SUMS
       - name: JavaScript syntax
         run: node --check internal/control/static/app.js
+      - name: Python acceptance-script syntax
+        run: python3 -m py_compile scripts/smoke-api-e2e.py
       - name: Tests
         run: go test -race ./...
       - name: Vet
