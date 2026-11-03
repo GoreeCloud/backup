@@ -6,6 +6,9 @@ Documentation=https://github.com/GoreeCloud/backup/blob/main/docs/LOCAL_SCHEDULI
 
 [Service]
 Type=oneshot
+# Optional after source/repository review: append -verify-after=structure.
+# Full verification also requires -acknowledge-full-verification-cost and can
+# read every stored file, causing substantial cloud egress costs.
 ExecStart=/ABSOLUTE/PATH/goreecloud-backup-trigger -source=/ABSOLUTE/SOURCE -token-file=%h/.config/goreecloud-backup/management-token
 NoNewPrivileges=true
 UMask=0077

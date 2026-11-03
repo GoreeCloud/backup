@@ -12,3 +12,6 @@
 *.pem
 *.secret
 .DS_Store
+# Python interpreter caches from opt-in acceptance scripts
+__pycache__/
+*.py[cod]

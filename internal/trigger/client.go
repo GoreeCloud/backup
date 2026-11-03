@@ -136,13 +136,22 @@ func (c Client) SubmitAndWait(ctx context.Context, source string) (string, error
 	if _, err := control.BuildCommand(control.Request{Type: "backup", Source: source}); err != nil {
 		return "", fmt.Errorf("invalid backup source: %w", err)
 	}
-	encoded, _ := json.Marshal(control.Request{Type: "backup", Source: source})
+	return c.submitAndWait(ctx, control.Request{Type: "backup", Source: source})
+}
+
+// submitAndWait uses the same guarded API for a backup or explicitly selected
+// verification job. The caller must validate the operation and confirmation.
+func (c Client) submitAndWait(ctx context.Context, request control.Request) (string, error) {
+	encoded, err := json.Marshal(request)
+	if err != nil {
+		return "", err
+	}
 	job, code, err := c.do(ctx, http.MethodPost, "/api/v1/jobs", encoded)
 	if err != nil {
 		return "", err
 	}
 	if code != http.StatusAccepted {
-		return "", fmt.Errorf("backup request rejected (HTTP %d)", code)
+		return "", fmt.Errorf("%s request rejected (HTTP %d)", request.Type, code)
 	}
 	id := job.ID
 	interval := c.PollInterval
@@ -163,10 +172,10 @@ func (c Client) SubmitAndWait(ctx context.Context, source string) (string, error
 		case "completed":
 			return id, nil
 		case "cancelled", "interrupted", "failed":
-			return id, fmt.Errorf("backup job ended in status %s; inspect local management history", status.Status)
+			return id, fmt.Errorf("%s job ended in status %s; inspect local management history", request.Type, status.Status)
 		case "queued", "running", "cancelling":
 		default:
-			return id, fmt.Errorf("backup job returned unexpected status")
+			return id, fmt.Errorf("%s job returned unexpected status", request.Type)
 		}
 		select {
 		case <-ctx.Done():
@@ -174,4 +183,42 @@ func (c Client) SubmitAndWait(ctx context.Context, source string) (string, error
 		case <-ticker.C:
 		}
 	}
+}
+
+// RunBackupAndVerify performs a snapshot first, then an optionally requested
+// integrity check. A failed snapshot never starts verification. The full mode
+// requires a separate explicit acknowledgment because it may download all
+// stored data and incur cloud egress costs. The default mode is "none".
+func (c Client) RunBackupAndVerify(ctx context.Context, source, mode string, acknowledgeFullCost bool) (string, string, error) {
+	switch mode {
+	case "none", "structure":
+		if acknowledgeFullCost {
+			return "", "", errors.New("full-verification cost acknowledgment is only valid for full mode")
+		}
+	case "full":
+		if !acknowledgeFullCost {
+			return "", "", errors.New("full verification requires explicit cost acknowledgment")
+		}
+	default:
+		return "", "", errors.New("verification mode must be none, structure, or full")
+	}
+
+	// Reject invalid sources before any API job is admitted.
+	if _, err := control.BuildCommand(control.Request{Type: "backup", Source: source}); err != nil {
+		return "", "", fmt.Errorf("invalid backup source: %w", err)
+	}
+	snapshotID, err := c.SubmitAndWait(ctx, source)
+	if err != nil {
+		return snapshotID, "", err
+	}
+	if mode == "none" {
+		return snapshotID, "", nil
+	}
+	verification := control.Request{Type: "verify-structure"}
+	if mode == "full" {
+		verification.Type = "verify-full"
+		verification.Confirm = "VERIFY ALL BACKUPS"
+	}
+	verificationID, err := c.submitAndWait(ctx, verification)
+	return snapshotID, verificationID, err
 }

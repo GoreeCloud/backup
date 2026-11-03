@@ -105,3 +105,40 @@ The script created an isolated, encrypted local repository and disposable source
 `PASS: authenticated API + Kopia backup/structure/full verification/restore + Rclone copy/check/preview/sync`
 
 The script's temporary repository and fixture were removed automatically; no production repository, configured cloud remote, VPS or service deployment was used. This validates a **single local Linux end-to-end acceptance run**, not long-term restore reliability, offsite backup access, cloud egress behavior, cancellation/error scenarios, full monitoring coverage, platform release readiness or production stability. CI also passed independently for this commit (GitHub Actions run `41716816309`).
+
+
+## Opt-in sequential post-backup verification acceptance — local Linux
+
+The separately built `goreecloud-backup-trigger` was extended to submit an
+optional structural or full integrity check **only after successful snapshot
+completion**; default scheduling remains snapshot-only. A full check also
+requires explicit cloud-transfer cost acknowledgment, and one bounded client
+deadline covers the two jobs. Failed/cancelled/interrupted operations are
+propagated as errors without claiming verification success.
+
+On November 3, 2026, an authorized Linux workstation ran the new
+`scripts/smoke-trigger-verify.py` from the development checkout using a
+previously checksum- and GPG-signature-verified official Kopia 0.23.1
+executable (the upstream signing key's external web-of-trust identity was not
+independently certified). The script created a fresh encrypted **disposable**
+filesystem repository and ran two snapshot triggers through a loopback API:
+one with structural verification, the other with full-content verification.
+It checked a rejected unacknowledged full mode produced **zero extra API
+jobs**. Four jobs completed: two snapshots, one structural check, and one
+full-content check. Its opt-in private journal contained neither source paths
+nor the management token.
+
+The smoke script reported:
+
+`PASS: isolated snapshot trigger + real Kopia structure/full checks`
+
+`PASS: invalid full mode rejected without any API job`
+
+`PASS: four completed API jobs and private status-only journal`
+
+The process exited with code **0** and its temporary repository and fixtures
+were removed. No system-wide binaries, scheduled timer, cloud remote or VPS
+production services were installed, changed, or activated. This is a **single
+local Linux acceptance exercise**, not full persistent scheduling, large
+remote-repository verification, signed packaging, fleet recovery, or
+production disaster-recovery readiness.
