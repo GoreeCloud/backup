@@ -23,3 +23,18 @@ The optional `GOREECLOUD_BACKUP_STATE_DIR` creates or opens a mode-0700 private 
 ## Cancellation safety
 
 The authenticated cancellation endpoint uses Go contexts to stop queued work and request interruption of running Kopia/Rclone processes. Cancellation is not transactional: source/destination changes may already have occurred, and child subprocesses may require separate inspection. Operators must verify partial syncs, restores and snapshots. Private job-status persistence marks unfinished cancellation as interrupted on restart; it does not store engine output or file paths. There is no durable job resumption or rollback.
+
+## Canonical local path safeguards (development alpha)
+
+For local-to-local Rclone operations, GoreeCloud Backup compares the resolved
+existing ancestor of each path before accepting work. This rejects source/
+destination overlaps hidden by symlink aliases, including paths whose final
+subdirectories have not yet been created. Dangling and cyclic symlinks fail
+closed. The engine executor rechecks overlap and live-sync destination scope
+immediately before spawning Rclone to catch queued path changes.
+
+This is a defense-in-depth validation, not an operating-system sandbox. A
+filesystem alias changed during an active external transfer may still create a
+race, and Rclone remote aliases cannot be resolved without backend-specific
+knowledge. Use a dedicated least-privilege account and trusted directories,
+keep independent snapshots, and review every sync preview before proceeding.

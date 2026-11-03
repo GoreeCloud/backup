@@ -111,6 +111,8 @@ The alpha, including opt-in private job metadata persistence and restart-recover
 
 Kopia: https://github.com/kopia/kopia | Rclone: https://github.com/rclone/rclone. The project invokes these tools as independent executables; their source is not copied here. A repository license for original GoreeCloud source is **not yet selected**. Public visibility does not grant an implied open-source license.
 
+**Local path safeguards:** local-to-local file operations resolve symlink aliases and reject overlapping source/destination directories, including paths with missing children. The engine rechecks immediately before launch; this does not eliminate filesystem races during a transfer. See `docs/SECURITY.md`.
+
 ## Operator cancellation (development alpha)
 
 Queued and running operations may be cancelled with authenticated `POST /api/v1/jobs/{id}/cancel` or the dashboard's **Cancel operation** action. Cancellation is best-effort; partial backup/restore/synchronization changes may remain. See [job cancellation and recovery limitations](docs/JOB_CANCELLATION.md). When persistent job history is enabled, an unfinished cancellation is recorded as **interrupted** after restart rather than silently marked successful.
