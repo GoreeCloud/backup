@@ -48,6 +48,26 @@ func (OSExecutor) Run(ctx context.Context, binary string, args ...string) (strin
 			return "", fmt.Errorf("restore destination is no longer available: %w", err)
 		}
 	}
+	// Recheck paths immediately before launch: a symlink may have changed
+	// since the API accepted the job. This narrows, but cannot eliminate,
+	// filesystem TOCTOU races while an external engine is running.
+	if binary == "rclone" && len(args) >= 3 {
+		switch args[0] {
+		case "copy", "check", "sync":
+			overlap, err := locationsOverlap(args[1], args[2])
+			if err != nil {
+				return "", err
+			}
+			if overlap {
+				return "", errors.New("source and destination overlap at execution time")
+			}
+			if args[0] == "sync" {
+				if err := safeSyncDestination(args[2]); err != nil {
+					return "", err
+				}
+			}
+		}
+	}
 	cmd := exec.CommandContext(ctx, binary, args...)
 	// Child processes need repository credentials, never the management API token.
 	cmd.Env = make([]string, 0, len(os.Environ()))
@@ -144,7 +164,11 @@ func safeSyncDestination(destination string) error {
 		if cleaned == string(filepath.Separator) {
 			return errors.New("sync to local filesystem root is prohibited")
 		}
-		if resolved, err := filepath.EvalSymlinks(cleaned); err == nil && resolved == string(filepath.Separator) {
+		resolved, err := canonicalLocalPath(cleaned)
+		if err != nil {
+			return err
+		}
+		if resolved == string(filepath.Separator) {
 			return errors.New("sync to symlinked filesystem root is prohibited")
 		}
 		return nil
@@ -160,19 +184,61 @@ func safeSyncDestination(destination string) error {
 	return nil
 }
 
-func locationsOverlap(a, b string) bool {
+// canonicalLocalPath resolves the existing prefix of an absolute local path.
+// Unlike EvalSymlinks(path), it also supports not-yet-created destination
+// directories. Dangling and cyclic symlinks fail closed.
+func canonicalLocalPath(input string) (string, error) {
+	current := filepath.Clean(input)
+	var missing []string
+	for {
+		resolved, err := filepath.EvalSymlinks(current)
+		if err == nil {
+			for i := len(missing) - 1; i >= 0; i-- {
+				resolved = filepath.Join(resolved, missing[i])
+			}
+			return filepath.Clean(resolved), nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("cannot resolve local path: %w", err)
+		}
+		// An existing symlink with a nonexistent target must not be
+		// mistaken for an ordinary absent destination directory.
+		if _, lerr := os.Lstat(current); lerr == nil {
+			return "", errors.New("local path contains a dangling symlink")
+		} else if !errors.Is(lerr, os.ErrNotExist) {
+			return "", fmt.Errorf("cannot inspect local path: %w", lerr)
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", errors.New("could not resolve local path")
+		}
+		missing = append(missing, filepath.Base(current))
+		current = parent
+	}
+}
+
+func locationsOverlap(a, b string) (bool, error) {
 	if filepath.IsAbs(a) && filepath.IsAbs(b) {
-		a, b = filepath.Clean(a), filepath.Clean(b)
+		var err error
+		a, err = canonicalLocalPath(a)
+		if err != nil {
+			return false, err
+		}
+		b, err = canonicalLocalPath(b)
+		if err != nil {
+			return false, err
+		}
 		return a == b || strings.HasPrefix(a, b+string(filepath.Separator)) ||
-			strings.HasPrefix(b, a+string(filepath.Separator))
+			strings.HasPrefix(b, a+string(filepath.Separator)), nil
 	}
 	ca, cb := strings.IndexByte(a, ':'), strings.IndexByte(b, ':')
 	if ca < 1 || cb < 1 || a[:ca] != b[:cb] {
-		return false
+		return false, nil
 	}
 	cleanA := path.Clean("/" + a[ca+1:])
 	cleanB := path.Clean("/" + b[cb+1:])
-	return cleanA == cleanB || strings.HasPrefix(cleanA, cleanB+"/") || strings.HasPrefix(cleanB, cleanA+"/")
+	return cleanA == cleanB || strings.HasPrefix(cleanA, cleanB+"/") ||
+		strings.HasPrefix(cleanB, cleanA+"/"), nil
 }
 
 func BuildCommand(r Request) (Command, error) {
@@ -192,7 +258,11 @@ func BuildCommand(r Request) (Command, error) {
 		if err := remoteOrAbsolute(r.Destination); err != nil {
 			return Command{}, err
 		}
-		if locationsOverlap(r.Source, r.Destination) {
+		overlap, err := locationsOverlap(r.Source, r.Destination)
+		if err != nil {
+			return Command{}, err
+		}
+		if overlap {
 			return Command{}, errors.New("source and destination must not overlap")
 		}
 		switch r.Type {

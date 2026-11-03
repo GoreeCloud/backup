@@ -148,3 +148,81 @@ func TestRestoreReservesDestinationAtExecution(t *testing.T) {
 		t.Fatal("restore reused an existing path")
 	}
 }
+
+func TestRejectsLocalSymlinkAliasOverlap(t *testing.T) {
+	base := t.TempDir()
+	source := filepath.Join(base, "source")
+	if err := os.Mkdir(source, 0700); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(base, "alias")
+	if err := os.Symlink(source, alias); err != nil {
+		t.Skipf("symlink unsupported: %v", err)
+	}
+
+	for _, tc := range []struct{ typ, from, to string }{
+		{"copy", source, alias},
+		{"check", alias, source},
+		{"sync-preview", source, filepath.Join(alias, "new-child")},
+		{"sync", filepath.Join(alias, "new-child"), source},
+		{"copy", source, filepath.Join(alias, "new-child", "nested")},
+	} {
+		_, err := BuildCommand(Request{Type: tc.typ, Source: tc.from, Destination: tc.to, Confirm: "DELETE DESTINATION EXTRAS"})
+		if err == nil {
+			t.Errorf("accepted alias overlap: %+v", tc)
+		}
+	}
+
+	if _, err := BuildCommand(Request{Type: "sync", Source: source, Destination: filepath.Join(base, "unrelated"), Confirm: "DELETE DESTINATION EXTRAS"}); err != nil {
+		t.Fatalf("unrelated paths should remain valid: %v", err)
+	}
+}
+
+func TestRejectsDanglingAndCyclicLocalSymlinks(t *testing.T) {
+	base := t.TempDir()
+	source := filepath.Join(base, "source")
+	if err := os.Mkdir(source, 0700); err != nil {
+		t.Fatal(err)
+	}
+	dangling := filepath.Join(base, "dangling")
+	if err := os.Symlink(filepath.Join(base, "missing"), dangling); err != nil {
+		t.Skipf("symlink unsupported: %v", err)
+	}
+	for _, destination := range []string{dangling, filepath.Join(dangling, "child")} {
+		if _, err := BuildCommand(Request{Type: "sync", Source: source, Destination: destination, Confirm: "DELETE DESTINATION EXTRAS"}); err == nil {
+			t.Errorf("accepted dangling symlink %s", destination)
+		}
+	}
+	cyclic := filepath.Join(base, "cycle")
+	if err := os.Symlink(cyclic, cyclic); err != nil {
+		t.Skipf("cyclic symlink unsupported: %v", err)
+	}
+	if _, err := BuildCommand(Request{Type: "sync", Source: source, Destination: cyclic, Confirm: "DELETE DESTINATION EXTRAS"}); err == nil {
+		t.Error("accepted cyclic symlink")
+	}
+}
+
+func TestExecutorRechecksLocalAliasBeforeLaunchingRclone(t *testing.T) {
+	base := t.TempDir()
+	source := filepath.Join(base, "source")
+	if err := os.Mkdir(source, 0700); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(base, "dest")
+	command, err := BuildCommand(Request{Type: "copy", Source: source, Destination: target})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// This alias is introduced after request validation, while queued.
+	if err := os.Symlink(source, target); err != nil {
+		t.Skipf("symlink unsupported: %v", err)
+	}
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "rclone"), []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+	if _, err := (OSExecutor{}).Run(context.Background(), command.Binary, command.Args...); err == nil {
+		t.Fatal("executor launched rclone despite newly overlapping symlink")
+	}
+}
