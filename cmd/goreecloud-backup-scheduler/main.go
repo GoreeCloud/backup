@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sort"
 	"syscall"
 	"time"
 
@@ -24,10 +25,50 @@ func main() {
 	maxWait := flag.Duration("max-wait", 35*time.Minute, "timeout per snapshot and optional verification (1m–45m)")
 	check := flag.Bool("check-config", false, "validate private policy file only, never run jobs")
 	runDue := flag.Bool("run-due", false, "claim and run eligible policy slots once")
+	showStatus := flag.Bool("show-status", false, "inspect private schedule outcomes without changing state or submitting jobs")
 	flag.Parse()
 	log.SetFlags(0)
-	if flag.NArg() != 0 || (*check == *runDue) || *configFile == "" {
-		log.Fatal("require -config and exactly one of -check-config or -run-due")
+	selectedModes := 0
+	for _, enabled := range []bool{*check, *runDue, *showStatus} {
+		if enabled {
+			selectedModes++
+		}
+	}
+	if flag.NArg() != 0 || selectedModes != 1 {
+		log.Fatal("choose exactly one of -check-config, -show-status or -run-due")
+	}
+	if *showStatus {
+		if *stateDir == "" {
+			log.Fatal("-show-status requires -state-dir")
+		}
+		records, err := scheduler.ReadStatus(*stateDir)
+		if err != nil {
+			log.Fatalf("private schedule status unavailable: %v", err)
+		}
+		ids := make([]string, 0, len(records))
+		for id := range records {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		if len(ids) == 0 {
+			fmt.Println("No schedule outcomes recorded.")
+		}
+		for _, id := range ids {
+			rec := records[id]
+			fmt.Printf("Policy %s: %s; UTC slot %s",
+				id, rec.Status, time.Unix(rec.LastSlotUnix, 0).UTC().Format(time.RFC3339))
+			if rec.SnapshotID != "" {
+				fmt.Printf("; snapshot job %s", rec.SnapshotID)
+			}
+			if rec.VerifyID != "" {
+				fmt.Printf("; verification job %s", rec.VerifyID)
+			}
+			fmt.Println()
+		}
+		return
+	}
+	if *configFile == "" {
+		log.Fatal("-config is required for -check-config and -run-due")
 	}
 	cfg, err := scheduler.LoadConfiguration(*configFile)
 	if err != nil {

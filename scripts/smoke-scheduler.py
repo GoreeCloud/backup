@@ -196,6 +196,21 @@ def main():
             assert "No enabled policy due" in repeated.stdout
             assert len(jobs()) == 3, "second invocation duplicated a snapshot"
 
+            # Status inspection neither needs the token nor changes state.
+            raw_before = (ledger_dir / "schedule-state.json").read_bytes()
+            report = require_success(
+                run([str(scheduler_bin), "-show-status",
+                     "-state-dir=" + str(ledger_dir)], env=env),
+                "read-only schedule status",
+            )
+            assert "Policy alpha: completed" in report.stdout
+            assert "Policy beta: completed" in report.stdout
+            assert "Policy disabled:" not in report.stdout
+            assert str(work / "source") not in report.stdout
+            assert token not in report.stdout
+            assert (ledger_dir / "schedule-state.json").read_bytes() == raw_before
+            print("PASS: read-only schedule status inspection left state unchanged")
+
             persisted = (ledger_dir / "schedule-state.json").read_text()
             state = json.loads(persisted)
             assert state["schema"] == 1

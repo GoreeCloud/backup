@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -102,21 +103,16 @@ func OpenStore(dir string) (*Store, error) {
 	}
 	changed := false
 	for id, record := range s.data.Records {
-		if !policyID.MatchString(id) || record.LastSlotUnix < 0 || record.Status == "" {
+		if err := validateRecord(id, record); err != nil {
 			s.Close()
-			return nil, errors.New("invalid schedule state entry")
+			return nil, err
 		}
-		switch record.Status {
-		case "claimed":
+		if record.Status == "claimed" {
 			record.Status = "interrupted"
 			now := time.Now().UTC()
 			record.CompletedAt = &now
 			s.data.Records[id] = record
 			changed = true
-		case "completed", "failed", "interrupted":
-		default:
-			s.Close()
-			return nil, errors.New("unsupported schedule outcome")
 		}
 	}
 	if changed {
@@ -126,6 +122,67 @@ func OpenStore(dir string) (*Store, error) {
 		}
 	}
 	return s, nil
+}
+
+// ReadStatus is a read-only operator inspection of the status-only ledger.
+// It neither opens the invocation lock nor performs crash reconciliation.
+// A claimed entry can therefore mean either actively running or uncertain.
+func ReadStatus(dir string) (map[string]Record, error) {
+	if !filepath.IsAbs(dir) || filepath.Clean(dir) == string(filepath.Separator) {
+		return nil, errors.New("status directory must be absolute and non-root")
+	}
+	info, err := os.Lstat(dir)
+	if err != nil || !info.IsDir() || info.Mode().Perm()&0077 != 0 {
+		return nil, errors.New("status directory must be an actual private directory")
+	}
+	data, err := PrivateFile(filepath.Join(dir, "schedule-state.json"), MaxStateBytes)
+	if err != nil {
+		return nil, fmt.Errorf("private schedule status unavailable: %w", err)
+	}
+	var state stateFile
+	if err := decodeOne(data, &state); err != nil {
+		return nil, err
+	}
+	if state.Schema != SchemaVersion || state.Records == nil || len(state.Records) > 64 {
+		return nil, errors.New("unsupported schedule status ledger")
+	}
+	for id, record := range state.Records {
+		if err := validateRecord(id, record); err != nil {
+			return nil, err
+		}
+	}
+	return state.Records, nil
+}
+
+func validJobID(s string) bool {
+	if s == "" {
+		return true
+	}
+	if len(s) != 24 {
+		return false
+	}
+	b, err := hex.DecodeString(s)
+	return err == nil && len(b) == 12
+}
+
+func validateRecord(id string, record Record) error {
+	if !policyID.MatchString(id) || record.LastSlotUnix < 0 ||
+		!validJobID(record.SnapshotID) || !validJobID(record.VerifyID) {
+		return errors.New("invalid schedule status record")
+	}
+	switch record.Status {
+	case "claimed":
+		if record.CompletedAt != nil {
+			return errors.New("claimed schedule record unexpectedly marked complete")
+		}
+	case "completed", "failed", "interrupted":
+		if record.CompletedAt == nil {
+			return errors.New("terminal schedule record lacks completion timestamp")
+		}
+	default:
+		return errors.New("unsupported schedule outcome")
+	}
+	return nil
 }
 
 func (s *Store) Close() error {

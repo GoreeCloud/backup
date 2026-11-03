@@ -178,11 +178,11 @@ func TestDurableClaimNoReplayAndCrashRecovery(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("next scheduled slot was blocked: %v %t", err, ok)
 	}
-	if err := s.Finish("documents", next, "abc123", "", nil); err != nil {
+	if err := s.Finish("documents", next, "abcdef012345abcdef012345", "", nil); err != nil {
 		t.Fatal(err)
 	}
 	rec, _ = s.Record("documents")
-	if rec.Status != "completed" || rec.SnapshotID != "abc123" {
+	if rec.Status != "completed" || rec.SnapshotID != "abcdef012345abcdef012345" {
 		t.Fatalf("completed status not durable: %+v", rec)
 	}
 	bytes, err := os.ReadFile(filepath.Join(dir, "schedule-state.json"))
@@ -214,7 +214,7 @@ func TestRunDueAtMostOnceAndFailure(t *testing.T) {
 		if p.ID != "documents" {
 			t.Fatalf("wrong policy: %s", p.ID)
 		}
-		return "test-snapshot", "", nil
+		return "abcdef012345abcdef012345", "", nil
 	}
 	results, err := RunDue(context.Background(), cfg, store, func() time.Time { return now }, run)
 	if err != nil || len(results) != 1 || results[0].Outcome != "completed" || calls != 1 {
@@ -230,7 +230,7 @@ func TestRunDueAtMostOnceAndFailure(t *testing.T) {
 	}
 	fail := func(context.Context, Policy) (string, string, error) {
 		calls++
-		return "snap2", "", errors.New("synthetic error")
+		return "012345abcdef012345abcdef", "", errors.New("synthetic error")
 	}
 	results, err = RunDue(context.Background(), cfg, store, func() time.Time { return now.Add(time.Hour) }, fail)
 	if err == nil || len(results) != 1 || results[0].Outcome != "failed" || calls != 2 {
@@ -345,5 +345,95 @@ func TestMissingInitializedLedgerFailsClosed(t *testing.T) {
 	}
 	if _, err := OpenStore(dir); err == nil || !strings.Contains(err.Error(), "missing after prior initialization") {
 		t.Fatalf("ledger loss was silently recreated: %v", err)
+	}
+}
+
+func TestReadOnlyStatusDoesNotReconcileOrMutateClaims(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "schedule")
+	s, err := OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slot := time.Date(2026, 11, 3, 22, 15, 0, 0, time.UTC)
+	if claimed, err := s.Claim("documents", slot); err != nil || !claimed {
+		t.Fatalf("claim %t %v", claimed, err)
+	}
+	stateFile := filepath.Join(dir, "schedule-state.json")
+	before, err := os.ReadFile(stateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	records, err := ReadStatus(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if records["documents"].Status != "claimed" {
+		t.Fatalf("read-only inspection altered live claim: %+v", records)
+	}
+	after, err := os.ReadFile(stateFile)
+	if err != nil || string(before) != string(after) {
+		t.Fatal("read-only inspection changed state file")
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	// A read-only status query never marks an uncertain claim interrupted.
+	records, err = ReadStatus(dir)
+	if err != nil || records["documents"].Status != "claimed" {
+		t.Fatalf("unexpected status: %+v %v", records, err)
+	}
+	// Only normal scheduler startup under the exclusive lock reconciles.
+	s, err = OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	records, err = ReadStatus(dir)
+	if err != nil || records["documents"].Status != "interrupted" {
+		t.Fatalf("restart status: %+v %v", records, err)
+	}
+}
+
+func TestReadOnlyStatusRejectsPublicOrTamperedState(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "schedule")
+	s, err := OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(dir, "schedule-state.json")
+	cases := []string{
+		`{"schema":1,"records":{"bad\nname":{"last_slot_unix":100,"status":"completed","completed_at":"2026-11-03T22:00:00Z"}}}`,
+		`{"schema":1,"records":{"good":{"last_slot_unix":100,"status":"completed","snapshot_id":"../unsafe","completed_at":"2026-11-03T22:00:00Z"}}}`,
+		`{"schema":1,"records":{"good":{"last_slot_unix":100,"status":"claimed","completed_at":"2026-11-03T22:00:00Z"}}}`,
+		`{"schema":1,"records":{"good":{"last_slot_unix":100,"status":"unknown"}}}`,
+	}
+	for _, text := range cases {
+		if err := os.WriteFile(file, []byte(text), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ReadStatus(dir); err == nil {
+			t.Fatalf("accepted malformed status ledger %s", text)
+		}
+	}
+	if err := os.WriteFile(file, []byte(`{"schema":1,"records":{}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(file, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadStatus(dir); err == nil {
+		t.Fatal("read status accepted group-readable file")
+	}
+	if err := os.Chmod(file, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadStatus(dir); err == nil {
+		t.Fatal("read status accepted public parent directory")
 	}
 }

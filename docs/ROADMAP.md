@@ -29,6 +29,10 @@ A separately built trigger CLI and systemd user-timer example provide a **manual
 
 ## Partial Milestone B: durable at-most-once Linux schedule slots
 
+A standalone `-show-status` read-only CLI reports schedule ledger
+outcomes and job IDs without reading tokens, source paths or modifying state.
+This is an operator inspection path, not yet the integrated GUI dashboard.
+
 An **opt-in** Linux one-shot schedule controller now reads at most four
 explicitly enabled private local policies, executes only within their
 10-minute UTC windows, and writes an atomic, private status-only claim before

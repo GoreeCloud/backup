@@ -140,3 +140,18 @@ whether a skipped/uncertain slot requires a new backup. The test is
 recorded at `docs/TEST_EVIDENCE_2026-11-03.md` and executable via
 `scripts/smoke-scheduler-crash.py`. This is not an exactly-once
 transaction protocol or production-power-loss proof.
+
+
+## Read-only private schedule status
+
+The optional Linux scheduler's `-show-status` command requires only a
+private mode-0700 schedule state directory, not the schedule source-policy
+file, API bearer token, or network access. It reads the strict,
+versioned mode-0600 ledger without obtaining the scheduler execution lock,
+changing claimed/terminal statuses, or submitting API jobs. Policy IDs,
+UTC slots, outcome types and validated 24-character hexadecimal job IDs
+are the only fields exposed. Malformed identifiers, unsupported statuses,
+invalid timestamps, public permissions and deleted/symlinked private files
+are rejected. A displayed `claimed` slot remains uncertain until the
+operator inspects the actual backup repository; read-only status is **not**
+an incident audit trail or verified backup catalog.
