@@ -37,7 +37,7 @@ func (b *cappedBuffer) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (OSExecutor) Run(ctx context.Context, binary string, args ...string) (string, error) {
+func (OSExecutor) Run(ctx context.Context, binary string, args ...string) (result string, runErr error) {
 	if binary != "kopia" && binary != "rclone" {
 		return "", errors.New("engine not permitted")
 	}
@@ -68,13 +68,37 @@ func (OSExecutor) Run(ctx context.Context, binary string, args ...string) (strin
 			}
 		}
 	}
+	// A shared Kopia content cache can return intact cached bytes after a blob
+	// has become corrupt in the backing repository. All integrity checks use a
+	// fresh, private cache so they re-read the backend. Never clear the user's
+	// existing cache: its contents may help recover a damaged repository.
+	freshVerifyCache := ""
+	if binary == "kopia" && len(args) >= 2 && args[0] == "snapshot" && args[1] == "verify" {
+		var err error
+		freshVerifyCache, err = os.MkdirTemp("", "goreecloud-backup-verify-cache-")
+		if err != nil {
+			return "", fmt.Errorf("cannot create private verification cache: %w", err)
+		}
+		defer func() {
+			if err := os.RemoveAll(freshVerifyCache); err != nil {
+				runErr = errors.Join(runErr, fmt.Errorf("failed to clean private verification cache: %w", err))
+			}
+		}()
+	}
 	cmd := exec.CommandContext(ctx, binary, args...)
 	// Child processes need repository credentials, never the management API token.
-	cmd.Env = make([]string, 0, len(os.Environ()))
+	cmd.Env = make([]string, 0, len(os.Environ())+1)
 	for _, item := range os.Environ() {
-		if !strings.HasPrefix(item, "GOREECLOUD_BACKUP_TOKEN=") {
-			cmd.Env = append(cmd.Env, item)
+		if strings.HasPrefix(item, "GOREECLOUD_BACKUP_TOKEN=") {
+			continue
 		}
+		if freshVerifyCache != "" && strings.HasPrefix(item, "KOPIA_CACHE_DIRECTORY=") {
+			continue
+		}
+		cmd.Env = append(cmd.Env, item)
+	}
+	if freshVerifyCache != "" {
+		cmd.Env = append(cmd.Env, "KOPIA_CACHE_DIRECTORY="+freshVerifyCache)
 	}
 	output := &cappedBuffer{max: 12 << 10}
 	cmd.Stdout, cmd.Stderr = output, output

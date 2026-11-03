@@ -75,3 +75,25 @@ a nonzero exit status and does not retroactively invalidate a completed
 snapshot. One total client deadline applies, so a timeout may leave an engine
 job running on the server. No timer, recovery policy, or cloud storage access
 is automatically enabled.
+
+
+## Fresh-cache integrity verification
+
+A verified integrity operation (`snapshot verify` structural or full) is
+executed with a fresh mode-0700 temporary `KOPIA_CACHE_DIRECTORY`. The
+service filters inherited copies of that variable only for these verification
+commands, forcing Kopia to read its repository through an isolated cache
+instead of reusing previously cached encrypted contents. If temporary cache
+creation fails, the service refuses to run the check; after the engine exits
+or fails it removes the temporary cache, and cleanup failures propagate.
+Original user-managed caches are not cleared or modified by this feature.
+Other commands continue to use their normal configured caches.
+
+The isolated acceptance test on a disposable encrypted local repository
+confirmed that an already-warmed regular cache could mask an induced
+backing-store bit flip, while a fresh cache exposed it. The test never changed
+an existing/production repository. It validates this particular local-cache
+risk, not the integrity behavior of every cloud backend or remote caching
+layer. Fresh verification may need significant temporary disk space and may
+incur additional storage requests or cloud egress charges. Do not promote
+this alpha to production based solely on a passing integrity check.

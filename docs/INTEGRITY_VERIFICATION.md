@@ -7,6 +7,18 @@ GoreeCloud Backup provides two **manual, authenticated** Kopia integrity-check j
 | Verify backup structure | `kopia snapshot verify --verify-files-percent=0 --file-parallelism=2` | Walks snapshot structures and checks referenced repository objects |
 | Verify all backup file contents | `kopia snapshot verify --verify-files-percent=100 --file-parallelism=2` | Also downloads, decrypts and decompresses every backed-up file for verification |
 
+**Fresh-cache protection:** GoreeCloud Backup starts each authenticated Kopia
+snapshot verification in a newly created mode-0700 temporary cache directory
+using Kopia's documented `KOPIA_CACHE_DIRECTORY` override, then removes
+the temporary cache on success or failure. This avoids treating intact
+previously cached repository content as proof that backing storage is intact.
+**The pre-existing Kopia cache is preserved**, including data that might be
+important for recovery. Temporary cache creation failure prevents the engine
+from starting. Verification now necessarily incurs fresh storage reads; plan
+for free temporary disk space, cloud egress fees, and timeouts. The protection
+was validated with Kopia 0.23.1 on an isolated local filesystem; other
+versions, remote caching layers and providers remain unverified.
+
 The complete check **requires typed confirmation**: `VERIFY ALL BACKUPS`. It is read-oriented and does not intentionally delete or repair repository objects, but it can use significant CPU, disk cache, network bandwidth, and billed cloud egress. The existing 30-minute per-job deadline still applies. Large repositories may need an operator-initiated external Kopia verification process with a longer controlled deadline.
 
 A successful verification is **not** proof that a particular application or operating system can be restored successfully. Continue performing actual test restores and independent checksum comparisons. A failed, cancelled, interrupted or timed-out verification must never be displayed or treated as passed.
@@ -39,3 +51,20 @@ The reproducible isolated Linux acceptance is implemented in
 `scripts/smoke-trigger-verify.py`. Refer to the local scheduling guide for
 configuration and privacy limits. A successful structural/full check cannot
 replace an independent restore exercise.
+
+
+## Real corruption negative test
+
+The separately run `scripts/smoke-cache-isolation.py` builds a local API
+connected to a **new disposable encrypted repository**, verifies it
+successfully, deliberately changes a byte in an encrypted content pack
+*inside that disposable repository*, and asserts the next full verification
+job reports `failed`. It also checks bounded engine output, journal privacy
+and cleanup. **Never apply this corruption test to an existing repository.**
+
+On November 3, 2026 the isolated Kopia 0.23.1 Linux negative test passed
+with cache isolation enabled; see `docs/TEST_EVIDENCE_2026-11-03.md`.
+Kopia's official [caching documentation](https://kopia.io/docs/advanced/caching/)
+describes cached repository content and the `KOPIA_CACHE_DIRECTORY`
+override. Normal verification is read-only; only the deliberately destructive
+**disposable** acceptance script changes repository bytes.
