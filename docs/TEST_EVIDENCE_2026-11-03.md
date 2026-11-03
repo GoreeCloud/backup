@@ -1,6 +1,6 @@
 # GoreeCloud Backup — verified development evidence (2026-11-03)
 
-**Stage:** development alpha, not a stable release, not deployed. This file describes local verification only and is not a claim about the live GitHub repository.
+**Stage:** development alpha, not a stable release, not deployed. This file distinguishes local verification from GitHub publication and CI results. The service remains a development alpha, not a deployed or stable product.
 
 ## Source and quality checks
 
@@ -14,7 +14,7 @@ go build ./cmd/goreecloud-backup
 
 All commands completed with exit status 0 after adding admission, preview and restore safety tests. Tests use fake engine executors to validate API/command behavior; they do not verify Kopia encryption or restore integrity. The dashboard JavaScript also passed `node --check`, and the optional isolated-Rclone smoke script passed `bash -n`.
 
-An additional **real local server-process smoke test** launched the built Linux binary bound to `127.0.0.1` with a disposable random token. It verified that the dashboard and CSP are served, unauthenticated `/api/v1/health` receives HTTP 401, authenticated health receives HTTP 200, and an invalid sync request receives HTTP 422. The service was stopped afterward. No engine binaries were available in that sandbox, so this does not constitute real engine-through-API acceptance.
+An additional **real local server-process smoke test** launched the built Linux binary bound to `127.0.0.1` with a disposable random token. It verified that the dashboard and CSP are served, unauthenticated `/api/v1/health` receives HTTP 401, authenticated health receives HTTP 200, and an invalid sync request receives HTTP 422. The service was stopped afterward. No engine binaries were available in that first sandbox; an independent real engine-through-API acceptance run was subsequently completed on an authorized Linux laptop (see below).
 
 ## Real transfer smoke test
 
@@ -41,15 +41,35 @@ Tested on the authorized Linux laptop in a dedicated temporary directory using o
 7. Ran `snapshot verify --verify-files-percent=100`; it processed **4 objects, 2 files, 67 bytes** without error. A search for the fixture text found no plaintext in the repository storage.
 8. Confirmed the entire disposable test directory, including the downloaded binary and test repository, was removed; no production data or storage destinations were accessed.
 
-This proves encrypted local backup/restore behavior **through the Kopia CLI** on that host. It does not yet prove the GoreeCloud Backup web API can launch real Kopia successfully, nor does a plaintext-marker search constitute a cryptographic security audit.
+This proves encrypted local backup/restore behavior **directly through the Kopia CLI** on that host. Separate combined application-to-engine acceptance was subsequently completed (see below). A plaintext-marker search is not a cryptographic security audit.
 
 ## Not yet verified
 
-- Invocation of real Kopia and Rclone commands **through** the web management API rather than directly through the engine CLI (the real management process was tested independently).
+- Production-grade unattended backup reliability, crash recovery, scheduled policy enforcement, and sustained-load testing.
 - Cloud provider credential flows, consistency guarantees, quotas, and remote transfers.
 - Persistent scheduling, multi-user authentication, secure remote access, Docker images, or native applications.
-- GitHub CI results, real-browser acceptance, and production deployment. (Repository publication must be checked against the live branch separately.)
+- Browser visual, interaction, and accessibility acceptance on supported devices; production deployment remains unverified.
 
 ## Security and release gate
 
-No user files, credentials, repository passphrases or public cloud accounts were used in this smoke test. Successful isolated Kopia and Rclone CLI tests are valuable engine-level evidence but are not sufficient to qualify the **combined GoreeCloud Backup application** as complete. End-to-end API-backed engine testing, visual review and platform-specific recovery/package acceptance remain necessary before a stable or deployed release.
+No user files, credentials, repository passphrases or public cloud accounts were used in this smoke test. Successful isolated CLI and combined API-backed engine tests establish the initial local integration path, not the entire GoreeCloud Backup product. Visual review, durable scheduling and jobs, remote/cloud storage qualification, recovery policy validation, and platform-specific security/package acceptance remain necessary before a stable or deployed release.
+
+## Published source and GitHub CI
+
+- On November 3, 2026 the initial 21-file alpha source tree was published to the public `GoreeCloud/backup` `main` branch at commit [`8921fc205019087e34ffa01cf02f2d8741fff606`](https://github.com/GoreeCloud/backup/commit/8921fc205019087e34ffa01cf02f2d8741fff606).
+- Readback of all 21 paths on GitHub exactly matched the staged UTF-8 source. GitHub Actions [Verify run 41650842846](https://github.com/GoreeCloud/backup/actions/runs/41650842846) completed with conclusion `success` for that push.
+- The optional integration runner `scripts/smoke-api-e2e.py` was subsequently published at commit `97d350604334c16938cf2e71f37b27ed18fb9f40`. CI for future commits should be checked against their own commit head; do not extrapolate the previous run.
+
+## End-to-end application API with real engines
+
+On November 3, 2026, an authorized Linux laptop built the exact published `main` Go source and started the GoreeCloud Backup management service on an ephemeral loopback port with a random bearer token. Kopia 0.23.1 was downloaded from the official release and its archive matched the pinned upstream SHA-256. An isolated Kopia configuration, cache, encrypted local repository and disposable source directory were used; Rclone 1.75.2 was run only on local test paths.
+
+1. Authenticated health endpoint reported both engines; unauthenticated access returned HTTP 401.
+2. `POST /api/v1/jobs` performed a real Kopia snapshot backup; snapshot listing returned its root object ID; authenticated restore recovered the source files to a new protected destination and their bytes matched the originals.
+3. The management API performed Rclone `copy` and `check`. Sync without the required typed confirmation returned HTTP 422.
+4. The API sync preview completed successfully without removing a destination-only test file. A confirmed sync removed only the disposable destination-only file. A second sync attempting to reuse the same preview returned HTTP 409. A final `check` passed.
+5. The service was stopped and its disposable directory, local repository, credentials, binaries and files were removed. This workflow never touched real backup repositories or cloud remotes.
+
+The initial run failed at Rclone `copy` when the disposable workspace was a **hidden** home-directory folder: confined Snap Rclone denied access. Repeating the run in a **non-hidden** home-directory folder passed. This is a packaging integration concern requiring onboarding checks, not a reason to disable confinement.
+
+Finally, the **published** `scripts/smoke-api-e2e.py` runner was executed independently using a checksum-verified Kopia archive and installed Rclone. It printed `PASS: authenticated API + Kopia snapshot/restore + Rclone copy/check/preview/sync` and exited successfully. Its temporary directories and server process were cleaned up. This provides repeatable local integration evidence; it does not establish production, cloud-provider, or cross-platform readiness.
