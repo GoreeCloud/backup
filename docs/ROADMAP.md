@@ -19,6 +19,10 @@ The authoritative product intent for this milestone is `docs/PRODUCT_SCOPE.md`, 
 - Canonical GC UI component/token adoption, real-browser screenshot audit and accessibility review
 - Native Linux service install, desktop client and signed release artifacts
 
+## Partial Milestone B: optional native Linux snapshot timer
+
+A separately built trigger CLI and systemd user-timer example are implemented as a **manual opt-in** path for periodic snapshots. They do not provide a scheduler API, a persistent policy database, missed-run reconciliation, fleet orchestration, or automatic deployment. See `docs/LOCAL_SCHEDULING.md`.
+
 ## Milestone C: protected multi-device environment — not yet implemented
 
 - Agent enrollment and authenticated service communications over GoreeCloud VPN
@@ -37,7 +41,7 @@ The authoritative product intent for this milestone is `docs/PRODUCT_SCOPE.md`, 
 
 ## Feature breadth
 
-The 32-section specification includes hundreds of features. Many are **upstream capability targets** (Kopia and Rclone), not direct exposed functions of the current control plane. Features such as scheduling, Android, iOS, multi-tenant SSO, immutable backups, OS images and AI remain work items, not shipped functions.
+The 32-section specification includes hundreds of features. Many are **upstream capability targets** (Kopia and Rclone), not direct exposed functions of the current control plane. Features such as an integrated scheduling UI and policy API, Android, iOS, multi-tenant SSO, immutable backups, OS images and AI remain work items, not shipped functions.
 
 ## Acceptance gates
 
