@@ -1,0 +1,14 @@
+# Local build artifacts and sensitive configuration
+/goreecloud-backup
+/*.test
+*.exe
+.env
+.env.*
+!.env.example
+*.log
+*.db
+*.sqlite*
+*.key
+*.pem
+*.secret
+.DS_Store

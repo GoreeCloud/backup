@@ -1,7 +1,98 @@
 # GoreeCloud Backup
 
-Privacy-first backup and storage management product combining encrypted Kopia snapshots with Rclone file operations.
+**Status: development alpha — not production-ready, not deployed.**
 
-**Status: development alpha; not deployed or production-ready.** The full reviewed source package has not yet been published to this repository. The existing release and integration acceptance gates remain open. See the GoreeCloud project records for progress.
+GoreeCloud Backup is a privacy-first, self-hosted backup and storage control plane. Its intended product scope combines Kopia's encrypted snapshot repositories with Rclone's file-transfer and storage-provider ecosystem under one GoreeCloud interface.
 
-The intended platform includes encrypted local snapshots, restoration, cloud transfers, file synchronization, automated policies, and future native clients. Kopia and Rclone are distinct external engines, not bundled forks. The official product scope, implementation roadmap and tests will be published only after approved repository synchronization.
+The current implementation is a **working, bounded first milestone**, not the complete feature specification. It provides a local authenticated web command center, a small versioned API, background job execution, job status, Kopia snapshot creation/listing/restoration, and Rclone copy/check/sync-preview/confirmed-sync operations. Kopia and Rclone are **external executables**, not bundled or rebranded forks.
+
+## Current capabilities
+
+| Feature | Implementation |
+| --- | --- |
+| Private dashboard | Implemented; responsive local web UI, no remote fonts or scripts |
+| API authentication | Bearer token, timing-safe comparison, security headers |
+| Encrypted backups | Uses externally installed Kopia and its connected repository |
+| Snapshot listing | Kopia `snapshot list --json` (raw job output) |
+| Snapshot creation | Kopia `snapshot create` against a specified local directory |
+| Restore | Kopia `snapshot restore` into a **new** destination only |
+| Cloud file copy | Rclone `copy --immutable`; existing modified files are not overwritten |
+| Data comparison | Rclone `check` |
+| Synchronization preview | Rclone `sync --dry-run` |
+| Live sync | Rclone `sync`, requires a successful matching preview less than 10 minutes old, one-time preview authorization, typed deletion warning, and rejects root destinations |
+| Asynchronous job tracking | One worker, maximum 12 pending/running jobs, 30-minute per-job timeout, latest 100 jobs in memory |
+| Engine availability | Reports whether Kopia/Rclone are installed on PATH |
+| Scheduling, persistence, RBAC, multi-tenancy, native apps | **Not yet implemented** |
+
+## Requirements
+
+- Go 1.23 or newer (for building the control plane)
+- Linux host for the currently tested source build; other operating systems have **not** been verified
+- Kopia installed and separately connected to an encrypted repository for snapshot functionality
+- Rclone installed and configured with remotes for remote transfers
+- Random management token of at least 24 characters
+
+## Development quick start
+
+```sh
+go test -race ./...
+go build -o goreecloud-backup ./cmd/goreecloud-backup
+export GOREECLOUD_BACKUP_TOKEN="$(openssl rand -hex 32)"
+./goreecloud-backup
+```
+
+Open `http://127.0.0.1:8787` **on the host running the server** and enter the token. For example, use a separate terminal to create a local Kopia repository first:
+
+```sh
+kopia repository create filesystem --path "$HOME/kopia-repository"
+kopia repository status
+```
+
+Review Kopia's password prompts and key-recovery requirements before using important data. Repository credentials are managed by Kopia, not by this application. Configure Rclone remotes using `rclone config` on the same host when needed. Do not place passwords, tokens, user data, or repository content in a public repository.
+
+**Never publicly expose this HTTP server.** It is explicitly limited to `127.0.0.1`, `localhost`, or `::1`. Remote administration requires a separately audited authenticated transport and authorization architecture; this milestone does not offer one.
+
+## API
+
+All `/api/v1` endpoints require `Authorization: Bearer <token>`. State-changing requests additionally require `Content-Type: application/json`. Examples:
+
+```sh
+curl -H "Authorization: Bearer $GOREECLOUD_BACKUP_TOKEN" http://127.0.0.1:8787/api/v1/health
+curl -H "Authorization: Bearer $GOREECLOUD_BACKUP_TOKEN" http://127.0.0.1:8787/api/v1/jobs
+curl -X POST http://127.0.0.1:8787/api/v1/jobs \
+  -H "Authorization: Bearer $GOREECLOUD_BACKUP_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"backup","source":"/absolute/path/to/important-data"}'
+```
+
+The job creation endpoint returns HTTP 202 and a job ID. Query `GET /api/v1/jobs/{id}` or list recent jobs. Operations: `backup`, `snapshots`, `restore`, `copy`, `check`, `sync-preview`, and `sync`. Transfers require `source` and `destination` as absolute local paths or configured Rclone remote paths. Restoration uses the **Kopia root directory ID** of the desired snapshot (not necessarily its manifest ID), `destination` to a path that does not exist, and `confirm` equal to `RESTORE`. Live sync requires `confirm` equal to `DELETE DESTINATION EXTRAS` **and** a successful `sync-preview` for the exact same paths within the last 10 minutes. Previews can authorize only one sync and do not guarantee that files have not changed since the preview.
+
+## Security boundaries and known limitations
+
+- Only allowlisted subcommands execute. No shell expansion or arbitrary command execution is exposed through the API.
+- Do **not** use this development service on a shared untrusted operating-system account. The same Kopia/Rclone host credentials may be accessible to the service and to processes running as its user.
+- The API token is filtered out of child processes' environments. Kopia passwords and Rclone configuration remain externally managed; this app does not store them.
+- No unattended durable scheduler, job persistence, tenant isolation, SSO, native mobile/desktop applications, filesystem-consistent database backup, object-lock configuration, or production deployment is provided yet.
+- Operation output can contain sensitive file names and paths; it is shown only to the authenticated local operator and is not persisted by this service.
+- Sync can delete destination files. The API enforces a fresh, matching, single-use preview; verify the exact paths and output yourself. Both local and remote storage roots are rejected as sync destinations, including common alternate spellings. A snapshot repository is **not** a sync target.
+- Copy uses Rclone `--immutable` in the current build to avoid overwriting destination data.
+- Restore refuses pre-existing target directories, reserves a new mode-0700 destination just before running, and passes no-overwrite and atomic-file flags to Kopia. An empty destination can remain after a failed restore; inspect it rather than deleting it blindly.
+- In-flight jobs are not preserved across crashes and may be interrupted on process shutdown. At most 12 jobs may be pending/running and further requests receive HTTP 429. Restore testing is mandatory before real reliance.
+- The interface was statically reviewed but has not completed browser screenshot, visual, usability, cross-platform, or accessibility acceptance; canonical GC UI integration remains outstanding.
+- No third-party source or binaries are included; install Kopia and Rclone separately under their respective licenses.
+
+## Design and architecture
+
+The UI follows GoreeCloud UI's documented principles of calm information hierarchy, purposeful depth, semantic surfaces, and responsive accessibility. **A token/package-level integration with `GoreeCloud/gc-ui` has not yet been verified**, so full design-system compliance is pending. The backend uses Go standard-library components only, an in-memory job queue, a serialized worker, and an explicitly bounded command vocabulary.
+
+See [the full user-defined product feature specification](docs/PRODUCT_SCOPE.md), [implementation roadmap](docs/ROADMAP.md), [security analysis](docs/SECURITY.md), [test evidence](docs/TEST_EVIDENCE_2026-11-03.md), and [third-party attribution](docs/THIRD_PARTY.md).
+
+The optional `scripts/smoke-local-rclone.sh` replays the local-to-local transfer acceptance against an isolated temporary directory under the invoking user's home directory, with cleanup. It intentionally executes a deletion-capable sync **only inside its own disposable test target**. The companion `scripts/smoke-local-kopia.sh` verifies encrypted repository creation, snapshotting, protected restoration and 100% content verification against disposable files. Inspect either script before running it. The roadmap distinguishes implemented, delegated-to-engine, and planned capabilities.
+
+## Quality evidence
+
+This source package has been locally built and tested using `go test -race ./...`, `go vet ./...`, and `go build ./cmd/goreecloud-backup`. Isolated local-filesystem Rclone transfer acceptance passed on an authorized Linux test device using Rclone 1.75.2. A real local management API process smoke test also passed authentication, security-header and request-validation checks. A signed-and-checksummed Kopia 0.23.1 binary also passed isolated encrypted repository creation, snapshot creation/listing, protected restore and 100% file verification **directly through the Kopia CLI**. Combined engine operations through the GoreeCloud Backup API and real cloud-provider transfers remain unverified. See [test evidence](docs/TEST_EVIDENCE_2026-11-03.md). A GitHub Actions CI workflow is included; its execution must be verified against the published repository head.
+
+## Third-party attribution
+
+Kopia: https://github.com/kopia/kopia | Rclone: https://github.com/rclone/rclone. The project invokes these tools as independent executables; their source is not copied here. A final repository license for original GoreeCloud source is **not yet selected**, and no implied license is granted by this preliminary source package.

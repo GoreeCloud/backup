@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>GoreeCloud Backup · Command center</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="rail" aria-label="Primary navigation">
+      <a class="brand" href="/" aria-label="GoreeCloud Backup home">
+        <span class="brand-icon" aria-hidden="true">◇</span>
+        <span><strong>GoreeCloud</strong><small>BACKUP</small></span>
+      </a>
+      <div class="rail-section">WORKSPACE</div>
+      <nav aria-label="Sections">
+        <a href="#overview" class="nav-link active" data-tab="overview"><span aria-hidden="true">▦</span> Overview</a>
+        <a href="#operations" class="nav-link" data-tab="operations"><span aria-hidden="true">⇄</span> Operations</a>
+        <a href="#history" class="nav-link" data-tab="history"><span aria-hidden="true">◷</span> Job history</a>
+      </nav>
+      <div class="rail-bottom">
+        <div class="quiet-card"><span class="status-dot"></span><div><strong>Private by design</strong><small>Runs on this computer</small></div></div>
+        <div class="release">DEVELOPMENT ALPHA <span>•</span> LOCAL-ONLY</div>
+      </div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <div class="breadcrumb">Personal workspace <span>/</span> <strong>Backup center</strong></div>
+        <div class="top-actions"><span id="session-state" class="session-status"><span class="status-dot muted"></span> Disconnected</span><button id="reconnect" class="button minimal" type="button">Change key</button></div>
+      </header>
+      <main id="main">
+        <section class="section intro" id="overview">
+          <div class="eyebrow">YOUR DATA, YOUR CONTROL <span class="line"></span> ONE SECURE WORKSPACE</div>
+          <div class="heading-grid"><div><h1>Backup without <em>compromise.</em></h1><p class="intro-text">A calm command center for encrypted snapshots, protected files, and storage operations across your infrastructure.</p></div><button class="button primary create-button" type="button" data-go="operations">+ New operation <span aria-hidden="true">↗</span></button></div>
+          <div class="metrics" aria-label="Backup metrics">
+            <article class="metric"><span class="metric-label">Total operations <span aria-hidden="true">▤</span></span><div class="metric-value" id="total-count">—</div><span class="metric-sub">Current session</span></article>
+            <article class="metric"><span class="metric-label">Completed <span aria-hidden="true">✓</span></span><div class="metric-value" id="completed-count">—</div><span class="metric-sub">Successfully finished</span></article>
+            <article class="metric"><span class="metric-label">Running <span aria-hidden="true">◴</span></span><div class="metric-value" id="running-count">—</div><span class="metric-sub">Including queued tasks</span></article>
+            <article class="metric accent"><span class="metric-label">Service status <span aria-hidden="true">◈</span></span><div class="metric-value smaller" id="service-state">Offline</div><span class="metric-sub">Authenticated local API</span></article>
+          </div>
+          <div class="dashboard-columns">
+            <section class="panel"><div class="panel-head"><div><span class="eyebrow muted">AT A GLANCE</span><h2>Backup engines</h2></div><span class="pill" id="engine-summary">Not checked</span></div><div class="engine-list"><div class="engine"><span class="engine-icon kopia">⬡</span><div><strong>Kopia</strong><small>Encrypted snapshots and recovery</small></div><span class="engine-state" id="kopia-state">Unknown</span></div><div class="engine"><span class="engine-icon rclone">⇄</span><div><strong>Rclone</strong><small>Transfers and cloud connections</small></div><span class="engine-state" id="rclone-state">Unknown</span></div></div><p class="panel-note">Both engines are separate. Configure a Kopia repository and Rclone remotes on the host before use.</p></section>
+            <section class="panel gradient-panel"><div class="panel-head"><div><span class="eyebrow muted">WORKFLOW</span><h2>Protection, simplified</h2></div><span class="subtle-icon">✧</span></div><p>Use snapshots to preserve recovery points, then copy or verify data with independent transfer tools.</p><div class="steps"><div><span>01</span> Connect a repository</div><div><span>02</span> Create a snapshot</div><div><span>03</span> Verify and recover</div></div><button class="text-button" data-go="operations" type="button">Launch an operation <span>↗</span></button></section>
+          </div>
+        </section>
+        <section class="section" id="operations" hidden>
+          <div class="eyebrow">CONTROL CENTER</div><h1>Run an <em>operation.</em></h1><p class="intro-text">Preview dangerous changes first. Each operation runs in an isolated, time-limited process without a shell.</p>
+          <div class="form-layout"><form id="job-form" class="panel job-form"><div class="panel-head"><h2>Operation settings</h2><span class="pill">LOCAL EXECUTION</span></div><label for="operation">Operation type</label><select id="operation" name="operation"><option value="backup">Create Kopia snapshot</option><option value="snapshots">List Kopia snapshots</option><option value="copy">Copy with Rclone</option><option value="check">Verify with Rclone</option><option value="sync-preview">Preview mirror changes (dry run)</option><option value="sync">Mirror destination (may delete files)</option><option value="restore">Restore snapshot to new location</option></select>
+          <div id="source-field" class="field"><label for="source">Source</label><input id="source" placeholder="/home/user/Documents or remote:path" autocomplete="off" spellcheck="false"><small>Use an absolute local path or a configured Rclone remote.</small></div>
+          <div id="destination-field" class="field" hidden><label for="destination">Destination</label><input id="destination" placeholder="/home/user/Backup or remote:path" autocomplete="off" spellcheck="false"></div>
+          <div id="snapshot-field" class="field" hidden><label for="snapshot-id">Snapshot root directory ID</label><input id="snapshot-id" placeholder="Kopia root directory ID from snapshot listing" autocomplete="off" spellcheck="false"></div>
+          <div id="confirm-field" class="field" hidden><label id="confirm-label" for="confirm">Confirmation phrase</label><input id="confirm" autocomplete="off" spellcheck="false"><small id="confirm-hint">Confirmation required</small></div>
+          <div class="form-footer"><p>Results are available under Job history. No operations run until submitted.</p><button class="button primary" id="submit" type="submit">Run operation ↗</button></div><div id="form-status" role="status" aria-live="polite"></div></form>
+          <aside class="panel side-note"><span class="side-symbol">✳</span><h2>Safety, by default.</h2><p>Sync previews use <code>--dry-run</code>. A live mirror requires an explicit deletion confirmation. Restores only target paths that do not exist.</p><div class="separator"></div><p>Operations are not persisted across service restarts in this development release. Use Kopia's native retention and scheduling for durable backup workflows.</p></aside></div>
+        </section>
+        <section class="section" id="history" hidden><div class="eyebrow">ACTIVITY</div><h1>Operation <em>history.</em></h1><p class="intro-text">Recent operations from this management-process session. Output may contain sensitive filenames.</p><div class="panel"><div class="panel-head"><h2>Recent jobs</h2><button class="button minimal" id="refresh" type="button">Refresh ↻</button></div><div id="jobs" class="jobs-list"><div class="empty-state">Authenticate to view recent operations.</div></div></div></section>
+      </main>
+      <footer class="footer"><span>GoreeCloud Backup · Private infrastructure</span><span>Prototype interface · No production deployment</span></footer>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <div class="auth-panel"><div class="auth-mark">◇</div><span class="eyebrow">SECURE ACCESS</span><h2 id="auth-title">Welcome to<br>GoreeCloud Backup.</h2><p>Enter your locally configured management token to unlock the dashboard. The key is kept only in this tab's memory.</p><form id="auth-form"><label for="token">Management token</label><input id="token" type="password" autocomplete="off" placeholder="Paste your access token" required minlength="24"><button class="button primary full" type="submit">Unlock workspace ↗</button><div id="auth-error" class="error" role="alert"></div></form><small>Local-only access · No telemetry · No account required</small></div>
+  </div>
+</body>
+</html>
