@@ -142,3 +142,42 @@ production services were installed, changed, or activated. This is a **single
 local Linux acceptance exercise**, not full persistent scheduling, large
 remote-repository verification, signed packaging, fleet recovery, or
 production disaster-recovery readiness.
+
+
+## Repository corruption negative test and Kopia cache isolation — local Linux
+
+An additional isolated Linux experiment using the official, checksum- and
+signature-verified Kopia 0.23.1 binary created a disposable encrypted
+filesystem repository and backed up a 2 MiB uncompressible fixture. Initial
+`snapshot verify --verify-files-percent=100` passed. After changing one
+byte inside the largest encrypted content pack, the **same warmed-cache**
+verification **still returned exit 0**. Repeating with a separate, empty
+cache via `KOPIA_CACHE_DIRECTORY` returned **exit 1**, with a content
+authentication/checksum error. This reproduced a local content-cache
+false-negative, not an attack on production data.
+
+To avoid this failure mode, GoreeCloud Backup now creates a fresh private
+verification cache for both structural and full checks, never clears the
+original cache, and removes the temporary cache on engine completion.
+Go unit tests verify the override, cleanup on success and failure, fail-closed
+temp creation, preservation of normal commands, and API-token filtering.
+
+An independent **real API negative test** executed
+`scripts/smoke-cache-isolation.py` with the patched Go server, a disposable
+repository, and Kopia 0.23.1. It verified clean repository success, modified
+one encrypted content-pack byte within the test repository, then confirmed
+the authenticated `verify-full` job **failed**. The test asserted the
+bounded API output and private status journal omitted the bearer token and
+source path; its temporary files were removed. Result:
+
+`PASS: clean encrypted repository verification completed`
+
+`PASS: corrupted disposable content pack detected through API`
+
+`PASS: failed job status, bounded output and private journal`
+
+The test exited **0**, meaning the anticipated *failure detection* occurred.
+This is not cloud backend acceptance, a repair feature, proof of fault
+resilience on every platform, or a substitute for an independent restore.
+See official Kopia documentation: https://kopia.io/docs/advanced/caching/
+and https://kopia.io/docs/advanced/consistency/.
