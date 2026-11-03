@@ -23,19 +23,19 @@ import (
 var staticFS embed.FS
 
 type Job struct {
-	ID          string     `json:"id"`
-	Type        string     `json:"type"`
-	Status      string     `json:"status"`
-	StartedAt   time.Time  `json:"started_at"`
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
-	CancelRequested bool `json:"cancel_requested,omitempty"`
-	Output      string     `json:"output,omitempty"`
-	Error       string     `json:"error,omitempty"`
-	Source      string     `json:"-"`
-	Destination string     `json:"-"`
-	PreviewUsed bool       `json:"-"`
-	ctx context.Context
-	cancel context.CancelFunc
+	ID              string     `json:"id"`
+	Type            string     `json:"type"`
+	Status          string     `json:"status"`
+	StartedAt       time.Time  `json:"started_at"`
+	CompletedAt     *time.Time `json:"completed_at,omitempty"`
+	CancelRequested bool       `json:"cancel_requested,omitempty"`
+	Output          string     `json:"output,omitempty"`
+	Error           string     `json:"error,omitempty"`
+	Source          string     `json:"-"`
+	Destination     string     `json:"-"`
+	PreviewUsed     bool       `json:"-"`
+	ctx             context.Context
+	cancel          context.CancelFunc
 }
 
 const maxPendingJobs = 12
@@ -195,33 +195,38 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 // cancelJob requests cancellation of a queued or running operation.
 // Cancellation cannot undo storage changes already performed by an engine.
 func (s *Server) cancelJob(w http.ResponseWriter, r *http.Request) {
-    s.mu.Lock()
-    var found *Job
-    for _, job := range s.jobs {
-        if job.ID == r.PathValue("id") { found = job; break }
-    }
-    if found == nil {
-        s.mu.Unlock()
-        jsonError(w, http.StatusNotFound, "job not found")
-        return
-    }
-    switch found.Status {
-    case "completed", "failed", "cancelled", "interrupted":
-        copy := *found
-        s.mu.Unlock()
-        respond(w, http.StatusConflict, map[string]any{"error": "operation already finished", "job": copy})
-        return
-    }
-    if !found.CancelRequested {
-        found.CancelRequested = true
-        found.Status = "cancelling"
-        // A restart treats an unfinished cancellation as interrupted.
-        if err := s.persistLocked(); err != nil { log.Printf("job metadata persistence failed: %v", err) }
-        found.cancel()
-    }
-    copy := *found
-    s.mu.Unlock()
-    respond(w, http.StatusAccepted, copy)
+	s.mu.Lock()
+	var found *Job
+	for _, job := range s.jobs {
+		if job.ID == r.PathValue("id") {
+			found = job
+			break
+		}
+	}
+	if found == nil {
+		s.mu.Unlock()
+		jsonError(w, http.StatusNotFound, "job not found")
+		return
+	}
+	switch found.Status {
+	case "completed", "failed", "cancelled", "interrupted":
+		copy := *found
+		s.mu.Unlock()
+		respond(w, http.StatusConflict, map[string]any{"error": "operation already finished", "job": copy})
+		return
+	}
+	if !found.CancelRequested {
+		found.CancelRequested = true
+		found.Status = "cancelling"
+		// A restart treats an unfinished cancellation as interrupted.
+		if err := s.persistLocked(); err != nil {
+			log.Printf("job metadata persistence failed: %v", err)
+		}
+		found.cancel()
+	}
+	copy := *found
+	s.mu.Unlock()
+	respond(w, http.StatusAccepted, copy)
 }
 
 func (s *Server) createJob(w http.ResponseWriter, r *http.Request) {
@@ -312,52 +317,56 @@ func (s *Server) createJob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) run(job *Job, command Command) {
-    defer job.cancel()
-    defer func(){ s.mu.Lock();s.pending--;s.mu.Unlock() }()
-    // The timeout also includes time waiting for the single worker slot.
-    ctx, timeoutCancel := context.WithTimeout(job.ctx, 30*time.Minute)
-    defer timeoutCancel()
-    select {
-    case s.queue <- struct{}{}:
-        defer func(){ <-s.queue }()
-    case <-ctx.Done():
-        s.finishJob(job, "", ctx.Err(), ctx.Err())
-        return
-    }
-    s.mu.Lock()
-    if ctx.Err() != nil {
-        s.mu.Unlock()
-        s.finishJob(job, "", ctx.Err(), ctx.Err())
-        return
-    }
-    job.Status = "running"
-    if err:=s.persistLocked();err!=nil{log.Printf("job metadata persistence failed: %v",err)}
-    s.mu.Unlock()
-    output,err:=s.executor.Run(ctx,command.Binary,command.Args...)
-    s.finishJob(job,output,err,ctx.Err())
+	defer job.cancel()
+	defer func() { s.mu.Lock(); s.pending--; s.mu.Unlock() }()
+	// The timeout also includes time waiting for the single worker slot.
+	ctx, timeoutCancel := context.WithTimeout(job.ctx, 30*time.Minute)
+	defer timeoutCancel()
+	select {
+	case s.queue <- struct{}{}:
+		defer func() { <-s.queue }()
+	case <-ctx.Done():
+		s.finishJob(job, "", ctx.Err(), ctx.Err())
+		return
+	}
+	s.mu.Lock()
+	if ctx.Err() != nil {
+		s.mu.Unlock()
+		s.finishJob(job, "", ctx.Err(), ctx.Err())
+		return
+	}
+	job.Status = "running"
+	if err := s.persistLocked(); err != nil {
+		log.Printf("job metadata persistence failed: %v", err)
+	}
+	s.mu.Unlock()
+	output, err := s.executor.Run(ctx, command.Binary, command.Args...)
+	s.finishJob(job, output, err, ctx.Err())
 }
 
 func (s *Server) finishJob(job *Job, output string, err error, reason error) {
-    now:=time.Now().UTC()
-    s.mu.Lock()
-    defer s.mu.Unlock()
-    job.CompletedAt=&now
-    job.Output=strings.ReplaceAll(output,s.token,"[redacted]")
-    switch {
-    case err==nil:
-        // A successful command may have completed immediately before cancel.
-        job.Status="completed"
-    case errors.Is(reason,context.Canceled):
-        job.Status="cancelled"
-        job.Error="operation cancelled; partial effects may require verification"
-    case errors.Is(reason,context.DeadlineExceeded):
-        job.Status="failed"
-        job.Error="operation timed out; partial effects may require verification"
-    default:
-        job.Status="failed"
-        job.Error="operation failed; inspect engine output"
-    }
-    if err:=s.persistLocked();err!=nil{log.Printf("job metadata persistence failed: %v",err)}
+	now := time.Now().UTC()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	job.CompletedAt = &now
+	job.Output = strings.ReplaceAll(output, s.token, "[redacted]")
+	switch {
+	case err == nil:
+		// A successful command may have completed immediately before cancel.
+		job.Status = "completed"
+	case errors.Is(reason, context.Canceled):
+		job.Status = "cancelled"
+		job.Error = "operation cancelled; partial effects may require verification"
+	case errors.Is(reason, context.DeadlineExceeded):
+		job.Status = "failed"
+		job.Error = "operation timed out; partial effects may require verification"
+	default:
+		job.Status = "failed"
+		job.Error = "operation failed; inspect engine output"
+	}
+	if err := s.persistLocked(); err != nil {
+		log.Printf("job metadata persistence failed: %v", err)
+	}
 }
 
 // Caller must hold s.mu. No file paths, output or secret environment values

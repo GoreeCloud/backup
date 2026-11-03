@@ -14,6 +14,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      - name: Verify source SHA-256 manifest
+        run: sha256sum --check SHA256SUMS
+      - name: JavaScript syntax
+        run: node --check internal/control/static/app.js
       - name: Tests
         run: go test -race ./...
       - name: Vet
