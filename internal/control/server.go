@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -37,13 +38,15 @@ type Job struct {
 const maxPendingJobs = 12
 
 type Server struct {
-	token    string
-	executor Executor
-	mux      *http.ServeMux
-	mu       sync.Mutex
-	jobs     []*Job
-	pending  int
-	queue    chan struct{}
+	token        string
+	executor     Executor
+	mux          *http.ServeMux
+	mu           sync.Mutex
+	jobs         []*Job
+	pending      int
+	queue        chan struct{}
+	journal      *JobJournal
+	journalError string
 }
 
 func ValidateAddress(address string) error {
@@ -58,10 +61,24 @@ func ValidateAddress(address string) error {
 }
 
 func NewServer(token string, executor Executor) http.Handler {
+	return newServer(token, executor, nil, nil)
+}
+
+// NewServerWithState opts into a private on-disk history of job statuses only.
+// Credentials, file paths, engine output and sync preview approvals stay in memory.
+func NewServerWithState(token string, executor Executor, stateDir string) (http.Handler, error) {
+	journal, previous, err := OpenJobJournal(stateDir)
+	if err != nil {
+		return nil, err
+	}
+	return newServer(token, executor, journal, previous), nil
+}
+
+func newServer(token string, executor Executor, journal *JobJournal, previous []*Job) http.Handler {
 	if len(token) < 24 {
 		panic("insufficient authentication token")
 	}
-	s := &Server{token: token, executor: executor, mux: http.NewServeMux(), queue: make(chan struct{}, 1)}
+	s := &Server{token: token, executor: executor, mux: http.NewServeMux(), queue: make(chan struct{}, 1), journal: journal, jobs: previous}
 	s.mux.HandleFunc("GET /", s.index)
 	s.mux.HandleFunc("GET /app.css", s.css)
 	s.mux.HandleFunc("GET /app.js", s.js)
@@ -133,9 +150,13 @@ func jsonError(w http.ResponseWriter, status int, msg string) {
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	_, kopiaErr := exec.LookPath("kopia")
 	_, rcloneErr := exec.LookPath("rclone")
+	s.mu.Lock()
+	persistent, journalError := s.journal != nil, s.journalError
+	s.mu.Unlock()
 	respond(w, 200, map[string]any{
 		"service": "GoreeCloud Backup", "maturity": "development-alpha", "mode": "loopback-local",
-		"engines": map[string]bool{"kopia": kopiaErr == nil, "rclone": rcloneErr == nil},
+		"engines":                map[string]bool{"kopia": kopiaErr == nil, "rclone": rcloneErr == nil},
+		"job_history_persistent": persistent, "job_history_degraded": journalError != "",
 	})
 }
 
@@ -230,11 +251,19 @@ func (s *Server) createJob(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	oldJobs := s.jobs
 	s.pending++
-	if len(s.jobs) >= 100 {
+	s.jobs = append(append([]*Job(nil), oldJobs...), job)
+	if len(s.jobs) > 100 {
 		s.jobs = s.jobs[1:]
 	}
-	s.jobs = append(s.jobs, job)
+	if err := s.persistLocked(); err != nil {
+		s.jobs = oldJobs
+		s.pending--
+		s.mu.Unlock()
+		jsonError(w, 507, "could not persist job history")
+		return
+	}
 	s.mu.Unlock()
 	accepted := *job // response snapshot: the worker may update the live job concurrently
 	go s.run(job, command)
@@ -251,6 +280,9 @@ func (s *Server) run(job *Job, command Command) {
 	defer func() { <-s.queue }()
 	s.mu.Lock()
 	job.Status = "running"
+	if err := s.persistLocked(); err != nil {
+		log.Printf("job metadata persistence failed: %v", err)
+	}
 	s.mu.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
@@ -269,4 +301,22 @@ func (s *Server) run(job *Job, command Command) {
 	} else {
 		job.Status = "completed"
 	}
+	if err := s.persistLocked(); err != nil {
+		log.Printf("job metadata persistence failed: %v", err)
+	}
+}
+
+// Caller must hold s.mu. No file paths, output or secret environment values
+// are serialized, including for failed jobs or snapshots.
+func (s *Server) persistLocked() error {
+	if s.journal == nil {
+		return nil
+	}
+	err := s.journal.Persist(s.jobs)
+	if err != nil {
+		s.journalError = "job status could not be persisted"
+	} else {
+		s.journalError = ""
+	}
+	return err
 }
