@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "policies": [
+    {
+      "id": "documents-daily",
+      "enabled": false,
+      "source": "/ABSOLUTE/SOURCE",
+      "interval_minutes": 1440,
+      "offset_minutes": 120,
+      "verify_after": "structure",
+      "acknowledge_full_verification_cost": false
+    }
+  ]
+}
