@@ -85,3 +85,13 @@ A separate **real-process** test executed the **published** `scripts/smoke-api-e
 GitHub Actions [Verify run 41653767437](https://github.com/GoreeCloud/backup/actions/runs/41653767437) concluded `success` for the initial source and documentation changes relating to the opt-in journal. Later documentation-only commits and the current branch head must be evaluated separately.
 
 **Limitations:** Journal status recovery does not resume, cancel or replay jobs; no durable schedule, migration support, encrypted at-rest metadata store, protected remote access, or production-readiness claim is established. Journal-write failures after admission are logged and reflected in health but cannot undo an already-running engine process. Do not equate a `completed` engine command with independent restored-data verification for real production datasets.
+
+
+## Linux Chromium browser audit — local development alpha
+
+- A local, loopback-only Go API was run with disposable stub Kopia/Rclone engines and a temporary management token.
+- Chromium (Puppeteer harness) exercised authentication, overview, operations navigation, live-sync typed-confirmation field visibility, and job-history navigation.
+- At 1440px desktop and 390px mobile viewport widths, the audited pages had no horizontal document overflow. Browser `pageerror` collection contained no JavaScript exceptions.
+- Rendered overview and operation states were captured and visually inspected, including the authenticated mobile layout.
+- The dashboard copy was corrected to distinguish in-memory job output from optional private status-only history retained across restarts; cancellation and interrupted status badges reuse existing GoreeCloud UI semantic colors.
+- The test used stub executables, not a production repository or actual remote storage. No public network exposure, production deployment, complete GC UI component/token adoption, extensive accessibility audit, or mobile native application acceptance is claimed.
