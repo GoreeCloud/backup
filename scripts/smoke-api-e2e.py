@@ -119,6 +119,10 @@ def main():
             assert health["engines"]["kopia"] and health["engines"]["rclone"]
             reject(401, "GET", "health", authenticated=False)
             job("backup", source=str(source))
+            # Verify the real encrypted repository through the authenticated API.
+            job("verify-structure")
+            reject(422, "POST", "jobs", {"type": "verify-full"})
+            job("verify-full", confirm="VERIFY ALL BACKUPS")
             snapshots = job("snapshots")
             items = json.loads(snapshots["output"])
             assert items, "no snapshots"
@@ -148,7 +152,7 @@ def main():
                 "confirm": "DELETE DESTINATION EXTRAS",
             })
             job("check", source=str(source), destination=str(destination))
-            print("PASS: authenticated API + Kopia snapshot/restore + Rclone copy/check/preview/sync")
+            print("PASS: authenticated API + Kopia backup/structure/full verification/restore + Rclone copy/check/preview/sync")
         finally:
             server.terminate()
             try:
