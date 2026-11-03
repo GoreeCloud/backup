@@ -6,7 +6,7 @@ The authoritative product intent for this milestone is `docs/PRODUCT_SCOPE.md`, 
 
 - Go control-plane server, authenticated loopback API, security headers and bounded command execution
 - Local responsive dashboard, engine availability, recent job history and operation submission
-- Kopia snapshot creation, listing and guarded restoration through the installed engine
+- Kopia snapshot creation, listing, guarded restoration, and manual structural/full-content verification through the installed engine
 - Rclone copy (immutable destination), integrity check, dry-run synchronization and confirmed live synchronization gated by a fresh matching single-use preview
 - Command validation, bounded queue admission, restore destination reservation, unit tests, race tests, documented security boundaries and CI workflow\n- Opt-in private, atomic metadata-only job-status journal (no source paths, credentials, engine output or sync approvals), interrupted-job marking after restart, and privacy/recovery tests
 

@@ -251,6 +251,17 @@ func BuildCommand(r Request) (Command, error) {
 		return Command{"kopia", []string{"snapshot", "create", source}}, nil
 	case "snapshots":
 		return Command{"kopia", []string{"snapshot", "list", "--json"}}, nil
+	case "verify-structure":
+		// Structural verification walks repository snapshot metadata and blobs.
+		// It does not download and decrypt all file contents.
+		return Command{"kopia", []string{"snapshot", "verify", "--verify-files-percent=0", "--file-parallelism=2"}}, nil
+	case "verify-full":
+		// A complete content verification can download the entire repository.
+		// Require explicit operator acknowledgment of bandwidth/egress costs.
+		if r.Confirm != "VERIFY ALL BACKUPS" {
+			return Command{}, errors.New("full verification requires typed confirmation (VERIFY ALL BACKUPS)")
+		}
+		return Command{"kopia", []string{"snapshot", "verify", "--verify-files-percent=100", "--file-parallelism=2"}}, nil
 	case "copy", "check", "sync-preview", "sync":
 		if err := remoteOrAbsolute(r.Source); err != nil {
 			return Command{}, err
