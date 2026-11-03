@@ -9,6 +9,7 @@ The authoritative product intent for this milestone is `docs/PRODUCT_SCOPE.md`, 
 - Kopia snapshot creation, listing, guarded restoration, and manual structural/full-content verification through the installed engine
 - Isolated local Linux real-engine API acceptance of structural/full verification and guarded restoration completed on November 3, 2026 (not a production readiness claim)
 - Fresh private cache isolation for Kopia integrity checks and disposable corrupted-blob rejection via real API (Linux negative acceptance; no cloud provider tests)
+- Disposable real-Kopia scheduler-kill/restart acceptance: interrupted claim skipped without duplicate admission, while original API snapshot finished independently (not a production crash/recovery guarantee)
 - Rclone copy (immutable destination), integrity check, dry-run synchronization and confirmed live synchronization gated by a fresh matching single-use preview
 - Command validation, bounded queue admission, restore destination reservation, unit tests, race tests, documented security boundaries and CI workflow
 - Opt-in private, atomic metadata-only job-status journal (no source paths, credentials, engine output or sync approvals), interrupted-job marking after restart, and privacy/recovery tests
