@@ -132,6 +132,13 @@ job already running under the separate loopback API may complete even while
 the schedule ledger correctly reports an uncertain `interrupted` outcome.
 This is not automated backup recovery or guaranteed delivery.
 
+**Read-only scheduler status:** `goreecloud-backup-scheduler -show-status
+-state-dir=/absolute/private/scheduler-state` reports last UTC slot,
+status and API job IDs without reading a policy/token file, connecting to
+the API or changing the schedule ledger. A `claimed` status can reflect
+either a still-active job or an uncertain interrupted invocation. See the
+[UTC scheduling operator guide](docs/DURABLE_SCHEDULING.md).
+
 **Optional Linux scheduling:** the separately built `goreecloud-backup-trigger` client submits a snapshot through the authenticated loopback API and waits for completion. It can optionally follow a successful snapshot with structural verification (`-verify-after=structure`) or, with explicit cloud-cost acknowledgment, full repository verification (`-verify-after=full -acknowledge-full-verification-cost`). The default is **no automatic verification**. Reviewed systemd *examples* provide opt-in timer configuration; nothing is installed or enabled by default. See [local scheduling and safety](docs/LOCAL_SCHEDULING.md).
 
 **Storage-backed verification:** GoreeCloud Backup now runs Kopia structure/full checks with a fresh private temporary cache rather than relying on previously cached content that can mask on-disk corruption. The user's existing Kopia cache is never cleared. A disposable corruption drill is available at `scripts/smoke-cache-isolation.py`. Tests remain local Linux acceptance, not proof of production/cloud resilience.

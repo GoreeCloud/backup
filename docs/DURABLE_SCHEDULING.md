@@ -76,6 +76,30 @@ Nothing installs, enables, or deploys the service automatically.
 **Do not install both the basic one-source snapshot timer and the new policy
 timer for the same source without reviewing duplicate-run effects.**
 
+## Read-only operator status
+
+To inspect the private status-only ledger **without claiming a slot,
+submitting a backup, reading the token or modifying state**, run:
+
+```sh
+goreecloud-backup-scheduler -show-status \
+  -state-dir=/absolute/private/scheduler-state
+```
+
+The output is stable/sorted by policy identifier and shows last UTC slot,
+`claimed`, `completed`, `failed` or `interrupted` status, and available
+snapshot/verification job IDs. No source directory names, engine output or
+credentials are read or printed. This requires a real mode-0700 state
+directory with a private valid state file; missing, malformed or public
+state is **rejected** instead of silently initialized.
+
+Reading a `claimed` entry does **not** change its status: a running
+scheduler may own the lock, or a prior invocation may have crashed. Only a
+subsequent exclusive `-run-due` invocation reconciles an abandoned
+`claimed` entry as `interrupted`. Neither status alone proves an actual
+backup succeeded or failed. Consult the authoritative Kopia snapshots and
+perform independent test restores before manual recovery.
+
 ## Recoverability and current limitations
 
 The ledger's last outcome for each policy can be `claimed` (in flight),

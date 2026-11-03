@@ -253,3 +253,32 @@ remote or production backup was changed. This verifies an isolated
 scheduler-process kill and skip semantics, **not** a full host crash,
 power failure, recovery/retry protocol, restored application data or
 multi-host distributed scheduling.
+
+
+## Read-only schedule status — independent privacy and restart regression
+
+The opt-in Linux schedule CLI now supports `-show-status`, which reads
+only the private scheduling ledger, without a policy file or token and
+without submitting jobs. New Go race tests exercise owner-only private
+permissions, strict state-schema/identifier validation, unsafe modified
+state rejection, and unchanged `claimed` status across a read-only
+inspection. A normal exclusive scheduler restart still reconciles the
+same claimed entry to `interrupted` without replay.
+
+The real-Kopia disposable `scripts/smoke-scheduler.py` was expanded to
+invoke this mode **without** a token-file argument, confirm the expected
+completed policy IDs and absence of disabled policies, source paths and
+the API token in its output, and assert the ledger bytes were unchanged.
+The script reported:
+
+`PASS: read-only schedule status inspection left state unchanged`
+
+It also completed two encrypted snapshots, a structural verification, and
+the existing repeated-invocation no-duplicate checks. The separate
+`scripts/smoke-scheduler-crash.py` was rerun after stricter record
+validation: it again passed scheduler SIGKILL, nonduplicating restart,
+and independent completion of the original real Kopia API job.
+
+Both isolated Linux tests exited **0**, used only private temporary
+repositories, and cleaned up. These checks do not establish a
+production GUI, authenticated remote status API, or cloud recovery.
