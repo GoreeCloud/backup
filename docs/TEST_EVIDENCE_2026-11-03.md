@@ -96,6 +96,12 @@ GitHub Actions [Verify run 41653767437](https://github.com/GoreeCloud/backup/act
 - The dashboard copy was corrected to distinguish in-memory job output from optional private status-only history retained across restarts; cancellation and interrupted status badges reuse existing GoreeCloud UI semantic colors.
 - The test used stub executables, not a production repository or actual remote storage. No public network exposure, production deployment, complete GC UI component/token adoption, extensive accessibility audit, or mobile native application acceptance is claimed.
 
-## Follow-up: verification API smoke coverage (pending live execution)
+## Follow-up: verification API smoke coverage — isolated live engine pass
 
-The disposable `scripts/smoke-api-e2e.py` was extended to call the newly implemented `verify-structure` and confirmed `verify-full` API jobs after creating an encrypted fixture snapshot. It also asserts that unconfirmed full verification is rejected with HTTP 422. CI syntax verification and the existing fake-executor Go test suite cover correctness of these changes, **not** a live Kopia engine invocation for the new endpoints. An independent run with trusted Kopia and Rclone remains an open acceptance requirement.
+On November 3, 2026, the disposable `scripts/smoke-api-e2e.py` from public `main` commit `91bdb0bad3f4cfcc0f15678d6458636f6c2b0349` was executed against a loopback management API on an authorized Linux workstation. The execution used **Kopia 0.23.1** from its official signed release (published release checksum and GPG signature validated; signing-key fingerprint `7FB9 9DFD 4780 9F0D 5339 D7D9 2273 699A FD56 A556`) and **Rclone 1.75.2**. The release signing key was obtained from Kopia's official website; the key's external trust-web certification was not independently established.
+
+The script created an isolated, encrypted local repository and disposable source files; the API completed snapshot creation, `verify-structure`, confirmed `verify-full` (100% file-content checking), snapshot listing, guarded restore with byte-for-byte comparison, Rclone copy/check, sync preview, confirmed synchronization and a final check. It verified that unconfirmed full verification returns HTTP 422 and that a consumed sync preview cannot authorize another sync. The script returned **exit code 0** with this result:
+
+`PASS: authenticated API + Kopia backup/structure/full verification/restore + Rclone copy/check/preview/sync`
+
+The script's temporary repository and fixture were removed automatically; no production repository, configured cloud remote, VPS or service deployment was used. This validates a **single local Linux end-to-end acceptance run**, not long-term restore reliability, offsite backup access, cloud egress behavior, cancellation/error scenarios, full monitoring coverage, platform release readiness or production stability. CI also passed independently for this commit (GitHub Actions run `41716816309`).
