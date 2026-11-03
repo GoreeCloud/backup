@@ -1,0 +1,12 @@
+# REVIEW BEFORE INSTALLATION. Safe default: missed runs are not replayed.
+[Unit]
+Description=GoreeCloud Backup — opt-in local snapshot schedule
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=15m
+Persistent=false
+Unit=goreecloud-backup-snapshot.service
+
+[Install]
+WantedBy=timers.target

@@ -18,7 +18,9 @@ External command execution uses Go `exec.CommandContext`, never a shell. Allowed
 
 ## Deployment gate
 
-The optional `GOREECLOUD_BACKUP_STATE_DIR` creates or opens a mode-0700 private state directory and atomically writes a mode-0600 versioned `jobs.json`. It intentionally excludes credentials, engine output, source/destination file paths and old sync approvals. Failed startup validation rejects symlinked, world/group-readable, corrupt or unsupported state files, and interrupted jobs are marked rather than resumed. No at-rest journal encryption, host-owner verification on all supported platforms, database migration, durable scheduling or process-wide crash recovery is established.\n\nBefore exposure to any network or production environment: separate service accounts, server-side authorisation, per-tenant repositories, durable encrypted job persistence, recovery tests, backup consistency tests, secret management, TLS/reverse-proxy integration, independent security review, metrics, rate-limiting, resource quotas, failure handling and host hardening are required. No production deployment is included in this milestone.
+The optional `GOREECLOUD_BACKUP_STATE_DIR` creates or opens a mode-0700 private state directory and atomically writes a mode-0600 versioned `jobs.json`. It intentionally excludes credentials, engine output, source/destination file paths and old sync approvals. Failed startup validation rejects symlinked, world/group-readable, corrupt or unsupported state files, and interrupted jobs are marked rather than resumed. No at-rest journal encryption, host-owner verification on all supported platforms, database migration, durable scheduling or process-wide crash recovery is established.
+
+Before exposure to any network or production environment: separate service accounts, server-side authorisation, per-tenant repositories, durable encrypted job persistence, recovery tests, backup consistency tests, secret management, TLS/reverse-proxy integration, independent security review, metrics, rate-limiting, resource quotas, failure handling and host hardening are required. No production deployment is included in this milestone.
 
 ## Cancellation safety
 
@@ -38,3 +40,13 @@ filesystem alias changed during an active external transfer may still create a
 race, and Rclone remote aliases cannot be resolved without backend-specific
 knowledge. Use a dedicated least-privilege account and trusted directories,
 keep independent snapshots, and review every sync preview before proceeding.
+
+## Opt-in Linux scheduling trigger
+
+The example timer schedules **only** non-destructive snapshot creation. Its
+trigger reads an existing mode-0600 token file (regular file, no symlink) and
+sends a bearer-authenticated request to the loopback API. HTTP redirects are
+never followed, preventing credential forwarding. It waits for final job status
+and exits nonzero for failed/cancelled/interrupted operations, but it cannot
+cancel or roll back a backup if its own wait expires. No timer is installed,
+activated or configured by this repository. See `docs/LOCAL_SCHEDULING.md`.

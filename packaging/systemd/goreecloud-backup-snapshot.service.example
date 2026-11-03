@@ -1,0 +1,12 @@
+# REVIEW BEFORE INSTALLATION. No unit is enabled or installed by this repository.
+# Replace both absolute path placeholders; do not put the bearer token here.
+[Unit]
+Description=GoreeCloud Backup — scheduled local encrypted snapshot
+Documentation=https://github.com/GoreeCloud/backup/blob/main/docs/LOCAL_SCHEDULING.md
+
+[Service]
+Type=oneshot
+ExecStart=/ABSOLUTE/PATH/goreecloud-backup-trigger -source=/ABSOLUTE/SOURCE -token-file=%h/.config/goreecloud-backup/management-token
+NoNewPrivileges=true
+UMask=0077
+TimeoutStartSec=45min

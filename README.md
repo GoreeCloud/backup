@@ -22,7 +22,8 @@ The current implementation is a **working, bounded first milestone**, not the co
 | Live sync | Rclone `sync`, requires a successful matching preview less than 10 minutes old, one-time preview authorization, typed deletion warning, and rejects root destinations |
 | Asynchronous job tracking | One worker, maximum 12 pending/running jobs, 30-minute per-job timeout, latest 100 jobs in memory |
 | Engine availability | Reports whether Kopia/Rclone are installed on PATH |
-| Opt-in private job status history | Implemented in alpha; at most 100 status records, no paths, engine output or secrets; interrupted jobs marked after restart, not resumed |\n| Scheduling, job resumption, RBAC, multi-tenancy, native apps | **Not yet implemented** |
+| Opt-in private job status history | Implemented in alpha; at most 100 status records, no paths, engine output or secrets; interrupted jobs marked after restart, not resumed |
+| Integrated scheduling/policy API, job resumption, RBAC, multi-tenancy, native apps | **Not yet implemented** |
 
 ## Requirements
 
@@ -112,6 +113,8 @@ The alpha, including opt-in private job metadata persistence and restart-recover
 Kopia: https://github.com/kopia/kopia | Rclone: https://github.com/rclone/rclone. The project invokes these tools as independent executables; their source is not copied here. A repository license for original GoreeCloud source is **not yet selected**. Public visibility does not grant an implied open-source license.
 
 **Local path safeguards:** local-to-local file operations resolve symlink aliases and reject overlapping source/destination directories, including paths with missing children. The engine rechecks immediately before launch; this does not eliminate filesystem races during a transfer. See `docs/SECURITY.md`.
+
+**Optional Linux scheduling:** a separately built `goreecloud-backup-trigger` client submits a snapshot through the authenticated loopback API and waits for completion. Reviewed systemd *examples* provide opt-in daily timer configuration. Nothing is installed or enabled by default. See [local scheduling and safety](docs/LOCAL_SCHEDULING.md).
 
 ## Operator cancellation (development alpha)
 
