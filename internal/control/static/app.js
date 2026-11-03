@@ -35,14 +35,14 @@
   }
   function updateFields() {
     const type = $('operation').value;
-    $('source-field').hidden = ['snapshots','restore'].includes(type);
-    $('destination-field').hidden = ['backup','snapshots'].includes(type);
+    $('source-field').hidden = ['snapshots','verify-structure','verify-full','restore'].includes(type);
+    $('destination-field').hidden = ['backup','snapshots','verify-structure','verify-full'].includes(type);
     $('snapshot-field').hidden = type !== 'restore';
-    $('confirm-field').hidden = !['restore','sync'].includes(type);
-    const phrase = type === 'sync' ? 'DELETE DESTINATION EXTRAS' : 'RESTORE';
+    $('confirm-field').hidden = !['restore','sync','verify-full'].includes(type);
+    const phrase = type === 'sync' ? 'DELETE DESTINATION EXTRAS' : type === 'verify-full' ? 'VERIFY ALL BACKUPS' : 'RESTORE';
     $('confirm-hint').textContent = `Enter exactly: ${phrase}`;
     $('confirm-label').textContent = 'Typed confirmation';
-    status(type === 'sync' ? 'Warning: sync deletes destination-only files. Complete and review a sync-preview of the same paths first.' : '', false);
+    status(type === 'sync' ? 'Warning: sync deletes destination-only files. Complete and review a sync-preview of the same paths first.' : type === 'verify-full' ? 'Full verification downloads/decrypts stored data and may incur cloud transfer costs. Allow enough time for the check to finish.' : type === 'verify-structure' ? 'Checks snapshot structures and referenced blobs; use full verification to check every stored file content.' : '', false);
   }
   async function refresh() {
     if (!secret) return;
@@ -113,7 +113,7 @@
     e.preventDefault(); if (!secret) { auth.hidden = false; return; }
     const type = $('operation').value;
     const payload = {type,source:$('source').value.trim(),destination:$('destination').value.trim(),snapshot_id:$('snapshot-id').value.trim()};
-    if (['restore','sync'].includes(type)) payload.confirm = $('confirm').value.trim();
+    if (['restore','sync','verify-full'].includes(type)) payload.confirm = $('confirm').value.trim();
     $('submit').disabled = true;
     status('Submitting operation…', true);
     try {

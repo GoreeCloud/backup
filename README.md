@@ -14,6 +14,7 @@ The current implementation is a **working, bounded first milestone**, not the co
 | API authentication | Bearer token, timing-safe comparison, security headers |
 | Encrypted backups | Uses externally installed Kopia and its connected repository |
 | Snapshot listing | Kopia `snapshot list --json` (raw job output) |
+| Backup integrity verification | Kopia snapshot structure check or confirmed full content check; may incur cloud download costs |
 | Snapshot creation | Kopia `snapshot create` against a specified local directory |
 | Restore | Kopia `snapshot restore` into a **new** destination only |
 | Cloud file copy | Rclone `copy --immutable`; existing modified files are not overwritten |
@@ -115,6 +116,10 @@ Kopia: https://github.com/kopia/kopia | Rclone: https://github.com/rclone/rclone
 **Local path safeguards:** local-to-local file operations resolve symlink aliases and reject overlapping source/destination directories, including paths with missing children. The engine rechecks immediately before launch; this does not eliminate filesystem races during a transfer. See `docs/SECURITY.md`.
 
 **Optional Linux scheduling:** a separately built `goreecloud-backup-trigger` client submits a snapshot through the authenticated loopback API and waits for completion. Reviewed systemd *examples* provide opt-in daily timer configuration. Nothing is installed or enabled by default. See [local scheduling and safety](docs/LOCAL_SCHEDULING.md).
+
+## Backup integrity verification (development alpha)
+
+Two authenticated Kopia jobs check snapshot structure or verify 100% of stored file contents. Full verification requires the typed phrase `VERIFY ALL BACKUPS`, may download the repository, and is limited by the alpha's 30-minute job timeout. See [integrity-check guidance](docs/INTEGRITY_VERIFICATION.md).
 
 ## Operator cancellation (development alpha)
 
