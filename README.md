@@ -22,7 +22,7 @@ The current implementation is a **working, bounded first milestone**, not the co
 | Live sync | Rclone `sync`, requires a successful matching preview less than 10 minutes old, one-time preview authorization, typed deletion warning, and rejects root destinations |
 | Asynchronous job tracking | One worker, maximum 12 pending/running jobs, 30-minute per-job timeout, latest 100 jobs in memory |
 | Engine availability | Reports whether Kopia/Rclone are installed on PATH |
-| Scheduling, persistence, RBAC, multi-tenancy, native apps | **Not yet implemented** |
+| Opt-in private job status history | Implemented in alpha; at most 100 status records, no paths, engine output or secrets; interrupted jobs marked after restart, not resumed |\n| Scheduling, job resumption, RBAC, multi-tenancy, native apps | **Not yet implemented** |
 
 ## Requirements
 
@@ -52,6 +52,20 @@ Review Kopia's password prompts and key-recovery requirements before using impor
 
 **Never publicly expose this HTTP server.** It is explicitly limited to `127.0.0.1`, `localhost`, or `::1`. Remote administration requires a separately audited authenticated transport and authorization architecture; this milestone does not offer one.
 
+## Optional private job status history
+
+The development alpha now supports opt-in, minimal job status persistence across service restarts. The default remains in-memory history. To enable the feature, create an absolute, **private directory owned by the service account**:
+
+```sh
+mkdir -p "$HOME/.local/state/goreecloud-backup"
+chmod 700 "$HOME/.local/state/goreecloud-backup"
+export GOREECLOUD_BACKUP_STATE_DIR="$HOME/.local/state/goreecloud-backup"
+```
+
+The service writes `jobs.json` atomically with mode `0600`, checks directory privacy and rejects malformed/unsafe state files on startup. It stores job IDs, types, timestamps, completion states, and generic errors only. **Passwords, access tokens, sources, destinations, file listings, engine output, and sync-preview approvals are never written to the journal.** Incomplete jobs are marked `interrupted` after restart; they are **not** automatically retried or resumed. The state format is versioned, but there is no migration facility yet. If state persistence cannot be established when submitting a new job, the API rejects submission rather than silently accepting it; subsequent write failures are logged and surfaced by the health endpoint.
+
+The feature does not provide a durable scheduler, persistent audit ledger, or enterprise-grade protected database. Back up the metadata file only if the retained status history itself is important.
+
 ## API
 
 All `/api/v1` endpoints require `Authorization: Bearer <token>`. State-changing requests additionally require `Content-Type: application/json`. Examples:
@@ -72,12 +86,12 @@ The job creation endpoint returns HTTP 202 and a job ID. Query `GET /api/v1/jobs
 - Only allowlisted subcommands execute. No shell expansion or arbitrary command execution is exposed through the API.
 - Do **not** use this development service on a shared untrusted operating-system account. The same Kopia/Rclone host credentials may be accessible to the service and to processes running as its user.
 - The API token is filtered out of child processes' environments. Kopia passwords and Rclone configuration remain externally managed; this app does not store them.
-- No unattended durable scheduler, job persistence, tenant isolation, SSO, native mobile/desktop applications, filesystem-consistent database backup, object-lock configuration, or production deployment is provided yet.
+- No unattended durable scheduler, resumable job execution, tenant isolation, SSO, native mobile/desktop applications, filesystem-consistent database backup, object-lock configuration, or production deployment is provided yet.
 - Operation output can contain sensitive file names and paths; it is shown only to the authenticated local operator and is not persisted by this service.
 - Sync can delete destination files. The API enforces a fresh, matching, single-use preview; verify the exact paths and output yourself. Both local and remote storage roots are rejected as sync destinations, including common alternate spellings. A snapshot repository is **not** a sync target.
 - Copy uses Rclone `--immutable` in the current build to avoid overwriting destination data.
 - Restore refuses pre-existing target directories, reserves a new mode-0700 destination just before running, and passes no-overwrite and atomic-file flags to Kopia. An empty destination can remain after a failed restore; inspect it rather than deleting it blindly.
-- In-flight jobs are not preserved across crashes and may be interrupted on process shutdown. At most 12 jobs may be pending/running and further requests receive HTTP 429. Restore testing is mandatory before real reliance.
+- In-flight jobs are not resumed after a crash and may be interrupted on process shutdown. If opt-in status history is enabled, old queued/running records are marked interrupted on restart; no job is replayed automatically. At most 12 jobs may be pending/running and further requests receive HTTP 429. Restore testing is mandatory before real reliance.
 - The interface was statically reviewed but has not completed browser screenshot, visual, usability, cross-platform, or accessibility acceptance; canonical GC UI integration remains outstanding.
 - No third-party source or binaries are included; install Kopia and Rclone separately under their respective licenses.
 
@@ -91,7 +105,7 @@ The optional, destructive-test-scoped `scripts/smoke-api-e2e.py` executes real K
 
 ## Quality evidence
 
-The alpha passed local `go test -race ./...`, `go vet ./...`, and `go build ./cmd/goreecloud-backup`. The 21-file initial publication passed [GitHub Actions Verify](https://github.com/GoreeCloud/backup/actions/runs/41650842846). Rclone 1.75.2 passed isolated local copy/check/sync, and signature- and checksum-verified Kopia 0.23.1 passed encrypted snapshot/restore/full verification. **A real authenticated management API also passed end-to-end Kopia backup/list/restore and Rclone copy/check/sync-preview/confirmed-sync tests** on an authorized Linux host. The published optional runner `scripts/smoke-api-e2e.py` repeated those checks successfully. See [test evidence](docs/TEST_EVIDENCE_2026-11-03.md). Real cloud-provider, durable scheduling, other OS and production security acceptance remain unverified.
+The alpha, including opt-in private job metadata persistence and restart-recovery tests, passed local `go test -race ./...`, `go vet ./...`, and `go build ./cmd/goreecloud-backup`. The 21-file initial publication passed [GitHub Actions Verify](https://github.com/GoreeCloud/backup/actions/runs/41650842846). Rclone 1.75.2 passed isolated local copy/check/sync, and signature- and checksum-verified Kopia 0.23.1 passed encrypted snapshot/restore/full verification. **A real authenticated management API also passed end-to-end Kopia backup/list/restore and Rclone copy/check/sync-preview/confirmed-sync tests** on an authorized Linux host. The published optional runner `scripts/smoke-api-e2e.py` repeated those checks successfully. See [test evidence](docs/TEST_EVIDENCE_2026-11-03.md). Real cloud-provider, durable scheduling, other OS and production security acceptance remain unverified.
 
 ## Third-party attribution
 
