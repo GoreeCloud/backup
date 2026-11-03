@@ -8,11 +8,11 @@ The authoritative product intent for this milestone is `docs/PRODUCT_SCOPE.md`, 
 - Local responsive dashboard, engine availability, recent job history and operation submission
 - Kopia snapshot creation, listing and guarded restoration through the installed engine
 - Rclone copy (immutable destination), integrity check, dry-run synchronization and confirmed live synchronization gated by a fresh matching single-use preview
-- Command validation, bounded queue admission, restore destination reservation, unit tests, race tests, documented security boundaries and CI workflow
+- Command validation, bounded queue admission, restore destination reservation, unit tests, race tests, documented security boundaries and CI workflow\n- Opt-in private, atomic metadata-only job-status journal (no source paths, credentials, engine output or sync approvals), interrupted-job marking after restart, and privacy/recovery tests
 
 ## Milestone B: usable local backup product — not yet implemented
 
-- Durable job database and resumable job lifecycle, cancellation and recovery after restart
+- Durable scheduler/database beyond the metadata-only alpha journal; resumable or cancelable job lifecycle, coordinated recovery of interrupted operations, and corruption/migration management
 - Setup wizard, repository creation/connection, policy and retention editor, scheduling and notifications
 - Structured snapshot browser, file-level restore previews and independent restoration verification
 - Provider configuration, credential-handling flows and storage-health diagnostics
