@@ -50,3 +50,14 @@ never followed, preventing credential forwarding. It waits for final job status
 and exits nonzero for failed/cancelled/interrupted operations, but it cannot
 cancel or roll back a backup if its own wait expires. No timer is installed,
 activated or configured by this repository. See `docs/LOCAL_SCHEDULING.md`.
+
+## GitHub Actions supply-chain pins
+
+The CI workflow uses exact reviewed commit SHA references for the official
+`actions/checkout` and `actions/setup-go` actions, not moving version tags.
+The commits were resolved from the official `actions/*` GitHub repositories:
+checkout v4.2.2 (`11bd71901bbe5b1630ceea73d27597364c9af683`) and
+setup-go v5.5.0 (`d35c59abb061a4a6fb18e82ac0862c26744d6ab5`).
+Action metadata was inspected at those immutable references. The workflow
+retains `permissions: contents: read`. A pin limits unreviewed updates; it
+does not certify an action as risk-free, and future updates require review.
