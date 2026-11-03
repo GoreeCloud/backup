@@ -73,3 +73,15 @@ On November 3, 2026, an authorized Linux laptop built the exact published `main`
 The initial run failed at Rclone `copy` when the disposable workspace was a **hidden** home-directory folder: confined Snap Rclone denied access. Repeating the run in a **non-hidden** home-directory folder passed. This is a packaging integration concern requiring onboarding checks, not a reason to disable confinement.
 
 Finally, the **published** `scripts/smoke-api-e2e.py` runner was executed independently using a checksum-verified Kopia archive and installed Rclone. It printed `PASS: authenticated API + Kopia snapshot/restore + Rclone copy/check/preview/sync` and exited successfully. Its temporary directories and server process were cleaned up. This provides repeatable local integration evidence; it does not establish production, cloud-provider, or cross-platform readiness.
+
+## Opt-in private status journal acceptance
+
+The job-status journal was added to the public repository at commit [`02c5d03493b46fba01efefb2e4f7bbd26c9a0953`](https://github.com/GoreeCloud/backup/commit/02c5d03493b46fba01efefb2e4f7bbd26c9a0953), with changes to the Go service, command initialization, journal implementation and unit tests. `go test -race ./...`, `go vet ./...` and `go build ./cmd/goreecloud-backup` passed locally after those changes.
+
+Unit tests verified that the opt-in journal is atomic and mode `0600`, contains no secret token, source/destination paths or engine output, and restores a completed job's metadata after service reinitialization. They verified that an unfinished job is marked `interrupted` on restart, corrupt or overly permissive state is rejected, and old preview records cannot authorize a deletion-capable sync after restart.
+
+A separate **real-process** test executed the **published** `scripts/smoke-api-e2e.py` on the authorized Linux laptop with `GOREECLOUD_BACKUP_STATE_DIR` set to a private, disposable directory. Kopia 0.23.1 was checksum-verified before use and Rclone used local test paths only. All eight authenticated engine operations completed, and the resulting state file was mode `0600`, schema 1, containing exactly eight `completed` job records with no engine output, source/destination path fields or fixture text. The server was stopped and test directories removed.
+
+GitHub Actions [Verify run 41653767437](https://github.com/GoreeCloud/backup/actions/runs/41653767437) concluded `success` for the initial source and documentation changes relating to the opt-in journal. Later documentation-only commits and the current branch head must be evaluated separately.
+
+**Limitations:** Journal status recovery does not resume, cancel or replay jobs; no durable schedule, migration support, encrypted at-rest metadata store, protected remote access, or production-readiness claim is established. Journal-write failures after admission are logged and reflected in health but cannot undo an already-running engine process. Do not equate a `completed` engine command with independent restored-data verification for real production datasets.
