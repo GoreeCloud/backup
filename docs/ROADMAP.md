@@ -23,7 +23,7 @@ The authoritative product intent for this milestone is `docs/PRODUCT_SCOPE.md`, 
 
 ## Partial Milestone B: optional native Linux snapshot timer
 
-A separately built trigger CLI and systemd user-timer example are implemented as a **manual opt-in** path for periodic snapshots. They do not provide a scheduler API, a persistent policy database, missed-run reconciliation, fleet orchestration, or automatic deployment. See `docs/LOCAL_SCHEDULING.md`.
+A separately built trigger CLI and systemd user-timer example provide a **manual opt-in** path for periodic snapshots, now with optional sequential structure/full verification after successful backup. Full verification requires explicit cost acknowledgment; no verification is enabled by default. These are not a scheduler API, persistent policy database, missed-run reconciliation, fleet orchestration, or automatic deployment. See `docs/LOCAL_SCHEDULING.md`.
 
 ## Milestone C: protected multi-device environment — not yet implemented
 

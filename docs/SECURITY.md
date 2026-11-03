@@ -61,3 +61,17 @@ setup-go v5.5.0 (`d35c59abb061a4a6fb18e82ac0862c26744d6ab5`).
 Action metadata was inspected at those immutable references. The workflow
 retains `permissions: contents: read`. A pin limits unreviewed updates; it
 does not certify an action as risk-free, and future updates require review.
+
+
+## Optional post-snapshot integrity checks
+
+The Linux trigger defaults to a snapshot-only run. An operator may opt into
+structural verification after a completed snapshot, or explicitly acknowledge
+a full repository read and possible cloud egress costs. Invalid or unacknowledged
+full verification is rejected before snapshot admission; failure of the
+snapshot prevents a verification job. Both jobs use the loopback bearer API,
+and their returned IDs are reported separately. A verification failure reports
+a nonzero exit status and does not retroactively invalidate a completed
+snapshot. One total client deadline applies, so a timeout may leave an engine
+job running on the server. No timer, recovery policy, or cloud storage access
+is automatically enabled.

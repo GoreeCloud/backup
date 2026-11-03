@@ -22,3 +22,20 @@ Official Kopia documentation:
 With trusted `kopia` and `rclone` executables available, an operator can run `python3 scripts/smoke-api-e2e.py` from the checked-out source. It creates a **disposable encrypted local repository** and a loopback API, then exercises structural/full verification, file restoration, transfer verification, and safeguarded synchronization. Its source and destination are temporary fixtures; it must never use an existing repository or cloud remote.
 
 The GitHub CI workflow validates script syntax but **does not execute** this live-engine acceptance script. One isolated Linux live-engine run with real Kopia 0.23.1 and Rclone 1.75.2 completed successfully on November 3, 2026; see `docs/TEST_EVIDENCE_2026-11-03.md`. Other platforms, cloud providers, large repositories, cancellation/error paths and production restore readiness remain unverified.
+
+
+## Optional post-backup verification from the Linux trigger
+
+The local `goreecloud-backup-trigger` CLI can run `-verify-after=structure`
+following a completed snapshot. For `-verify-after=full`, it additionally
+requires `-acknowledge-full-verification-cost`. These options are opt-in;
+the default `-verify-after=none` does not verify automatically. Full checks
+cover the connected repository, not just the latest snapshot. One client wait
+deadline applies across the two jobs. The trigger returns a nonzero code if
+either job fails, but a completed snapshot is still a distinct result from a
+failed subsequent integrity check.
+
+The reproducible isolated Linux acceptance is implemented in
+`scripts/smoke-trigger-verify.py`. Refer to the local scheduling guide for
+configuration and privacy limits. A successful structural/full check cannot
+replace an independent restore exercise.

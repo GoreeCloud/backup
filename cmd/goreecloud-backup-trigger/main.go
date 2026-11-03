@@ -20,6 +20,8 @@ func main() {
 	address := flag.String("address", "127.0.0.1:8787", "loopback GoreeCloud Backup HTTP address")
 	tokenFile := flag.String("token-file", "", "private (0600) token file; never put token on command line")
 	maxWait := flag.Duration("max-wait", 35*time.Minute, "maximum time to await a backup result")
+	verifyAfter := flag.String("verify-after", "none", "optional post-backup verification: none, structure, full")
+	ackFull := flag.Bool("acknowledge-full-verification-cost", false, "explicitly allow full verification of all repository data, including cloud egress costs")
 	flag.Parse()
 	log.SetFlags(0)
 	if *tokenFile == "" || *source == "" || *maxWait < time.Minute || *maxWait > 45*time.Minute || flag.NArg() != 0 {
@@ -34,11 +36,14 @@ func main() {
 	defer stop()
 	ctx, cancel := context.WithTimeout(ctx, *maxWait)
 	defer cancel()
-	id, err := client.SubmitAndWait(ctx, *source)
-	if id != "" {
-		fmt.Printf("Snapshot job: %s\n", id)
+	snapshotID, verificationID, err := client.RunBackupAndVerify(ctx, *source, *verifyAfter, *ackFull)
+	if snapshotID != "" {
+		fmt.Printf("Snapshot job: %s\n", snapshotID)
+	}
+	if verificationID != "" {
+		fmt.Printf("Integrity verification job: %s\n", verificationID)
 	}
 	if err != nil {
-		log.Fatalf("snapshot did not complete successfully: %v", err)
+		log.Fatalf("snapshot or requested verification did not complete successfully: %v", err)
 	}
 }
