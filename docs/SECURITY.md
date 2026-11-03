@@ -126,3 +126,17 @@ leave Kopia running after its scheduler process dies, and a completed
 snapshot may still fail an integrity check. The operator must test restores.
 
 See `docs/DURABLE_SCHEDULING.md` for manual installation and limitations.
+
+
+## Scheduler crash safety — tested negative case
+
+The opt-in one-shot scheduler can be killed while the separate API job
+continues to execute. A deliberately terminated disposable Linux scheduler
+left a fsynced `claimed` slot; restarting correctly marked it
+`interrupted` and submitted no duplicate snapshot. The original real
+Kopia job eventually completed. Operators must therefore consult
+the authoritative Kopia repository/job history before manually deciding
+whether a skipped/uncertain slot requires a new backup. The test is
+recorded at `docs/TEST_EVIDENCE_2026-11-03.md` and executable via
+`scripts/smoke-scheduler-crash.py`. This is not an exactly-once
+transaction protocol or production-power-loss proof.

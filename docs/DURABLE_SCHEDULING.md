@@ -102,3 +102,24 @@ An opt-in isolated Linux acceptance script is
 test binaries and uses only a disposable encrypted repository and private
 loopback service. GitHub CI checks this script's syntax but does **not**
 execute live-engine acceptance against cloud storage.
+
+
+## Real-engine crash/restart acceptance
+
+The separate, opt-in `scripts/smoke-scheduler-crash.py` builds the local API
+and scheduler, connects them to a **fresh encrypted disposable Kopia**
+filesystem repository, then waits for an actual snapshot job to reach
+`running` after the scheduler has fsynced a `claimed` slot. It terminates
+**only the scheduler process**, immediately invokes the scheduler again, and
+asserts that the same slot is marked `interrupted` without submitting any
+second API job. It then waits for the **original** real Kopia job to finish.
+This specifically tests that an uncertain schedule record does **not** imply
+that the storage operation failed. The script verifies ledger/journal privacy
+and removes all temporary fixtures.
+
+The local Linux test passed on November 3, 2026 using the separately
+checksum- and signature-verified Kopia 0.23.1 executable. It did **not**
+corrupt or delete an existing repository, kill the management API service,
+or modify production. It does not prove recovery of a service crash, data
+corruption, a power loss, distributed scheduling or application-consistent
+backups.

@@ -216,3 +216,40 @@ The script exited **0** and removed its disposable repository and service.
 No systemd timer, cloud account, production storage or VPS was changed.
 This is local Linux **at-most-once slot acceptance**, not proof of
 exactly-once execution, production scheduler durability or remote recovery.
+
+
+## UTC schedule claim crash/restart drill — separate process, real Kopia
+
+On November 3, 2026, an authorized local Linux acceptance run executed
+`scripts/smoke-scheduler-crash.py` against a fresh private encrypted
+filesystem repository using the previously checksum- and GPG-signature-
+verified official Kopia 0.23.1 binary. The script launched a loopback API
+and a separate one-shot scheduler configured with one explicitly enabled
+due UTC policy. The local Kopia command wrapper delayed execution to
+reproduce an active job safely.
+
+The test confirmed the scheduler had **already fsynced the claimed UTC
+slot** while the authenticated API had a **running** snapshot job, then
+deliberately killed only the scheduler process. A new one-shot scheduler
+process reopened the private ledger, marked the previous claim as
+`interrupted`, and skipped that UTC slot **without submitting a duplicate
+API job**. The original independent API job then finished `completed`
+using real Kopia. Thus, an interrupted scheduler claim cannot be equated
+with failed underlying storage work. Status ledger and API job journal
+contained no source path or bearer token. Output:
+
+`PASS: killed scheduler after durable claim and running API job`
+
+`PASS: restart marked uncertain claim interrupted without duplication`
+
+`PASS: original real Kopia snapshot finished independently`
+
+`PASS: private ledger/journal contain no token or source paths`
+
+The script exited **0** and removed the temporary encrypted repository,
+private policy, token, ledger, and test binaries. The real API service was
+terminated by the test's own cleanup. No systemd timer, VPS service, cloud
+remote or production backup was changed. This verifies an isolated
+scheduler-process kill and skip semantics, **not** a full host crash,
+power failure, recovery/retry protocol, restored application data or
+multi-host distributed scheduling.
