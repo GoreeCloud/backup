@@ -1,11 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-gc-mode="light" data-gc-accent="iris">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark light">
+  <meta name="color-scheme" content="light dark">
   <title>GoreeCloud Backup · Command center</title>
   <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/gc-theme.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
@@ -29,12 +30,12 @@
     <div class="workspace">
       <header class="topbar">
         <div class="breadcrumb">Personal workspace <span>/</span> <strong>Backup center</strong></div>
-        <div class="top-actions"><span id="session-state" class="session-status"><span class="status-dot muted"></span> Disconnected</span><button id="reconnect" class="button minimal" type="button">Change key</button></div>
+        <div class="top-actions"><span id="session-state" class="session-status"><span class="status-dot muted"></span> Disconnected</span><button id="appearance-toggle" class="button minimal appearance-toggle" type="button" aria-pressed="false">Dark mode</button><button id="reconnect" class="button minimal" type="button">Change key</button></div>
       </header>
       <main id="main">
         <section class="section intro" id="overview">
           <div class="eyebrow">YOUR DATA, YOUR CONTROL <span class="line"></span> ONE SECURE WORKSPACE</div>
-          <div class="heading-grid"><div><h1>Backup without <em>compromise.</em></h1><p class="intro-text">A calm command center for encrypted snapshots, protected files, and storage operations across your infrastructure.</p></div><button class="button primary create-button" type="button" data-go="operations">+ New operation <span aria-hidden="true">↗</span></button></div>
+          <div class="heading-grid"><div><h1>Your backups, <em>clearly.</em></h1><p class="intro-text">Monitor backup activity, check your engines, and run protected operations from one private local workspace.</p></div><button class="button primary create-button" type="button" data-go="operations">+ New operation <span aria-hidden="true">↗</span></button></div>
           <div class="metrics" aria-label="Backup metrics">
             <article class="metric"><span class="metric-label">Total operations <span aria-hidden="true">▤</span></span><div class="metric-value" id="total-count">—</div><span class="metric-sub">Recent job history</span></article>
             <article class="metric"><span class="metric-label">Completed <span aria-hidden="true">✓</span></span><div class="metric-value" id="completed-count">—</div><span class="metric-sub">Successfully finished</span></article>
@@ -62,7 +63,7 @@
     </div>
   </div>
   <div class="modal-backdrop" id="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-    <div class="auth-panel"><div class="auth-mark">◇</div><span class="eyebrow">SECURE ACCESS</span><h2 id="auth-title">Welcome to<br>GoreeCloud Backup.</h2><p>Enter your locally configured management token to unlock the dashboard. The key is kept only in this tab's memory.</p><form id="auth-form"><label for="token">Management token</label><input id="token" type="password" autocomplete="off" placeholder="Paste your access token" required minlength="24"><button class="button primary full" type="submit">Unlock workspace ↗</button><div id="auth-error" class="error" role="alert"></div></form><small>Local-only access · No telemetry · No account required</small></div>
+    <div class="auth-panel"><div class="auth-mark">◇</div><span class="eyebrow">SECURE ACCESS</span><h2 id="auth-title">Welcome to<br>GoreeCloud Backup.</h2><p>Enter your locally configured management token to unlock the dashboard. The key is kept only in this tab's memory.</p><form id="auth-form"><label for="token">Management token</label><input id="token" type="password" autocomplete="off" placeholder="Paste your access token" required minlength="24"><button class="button primary full" type="submit">Unlock workspace ↗</button><div id="auth-error" class="error" role="alert"></div></form><div class="auth-preferences"><button id="auth-appearance-toggle" class="button minimal appearance-toggle" type="button" aria-pressed="false">Dark mode</button></div><small>Local-only access · No telemetry · No account required</small></div>
   </div>
 </body>
 </html>
