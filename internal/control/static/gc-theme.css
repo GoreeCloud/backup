@@ -214,3 +214,9 @@
 /* Consistent touch-sized appearance controls in both unlocked and locked UI. */
 .appearance-toggle {min-height:44px;}
 @media (max-width:760px) { .topbar .button.minimal {min-height:44px;} }
+
+/* Dark footer must remain readable against the GC UI dark canvas. */
+:root[data-gc-mode="dark"] .footer {
+  color:#B3B9CF;
+  border-color:#373C50;
+}
