@@ -84,6 +84,7 @@ func newServer(token string, executor Executor, journal *JobJournal, previous []
 	s := &Server{token: token, executor: executor, mux: http.NewServeMux(), queue: make(chan struct{}, 1), journal: journal, jobs: previous}
 	s.mux.HandleFunc("GET /", s.index)
 	s.mux.HandleFunc("GET /app.css", s.css)
+	s.mux.HandleFunc("GET /gc-theme.css", s.gcTheme)
 	s.mux.HandleFunc("GET /app.js", s.js)
 	s.mux.HandleFunc("GET /api/v1/health", s.auth(s.health))
 	s.mux.HandleFunc("GET /api/v1/jobs", s.auth(s.listJobs))
@@ -115,6 +116,9 @@ func (s *Server) index(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) css(w http.ResponseWriter, r *http.Request) {
 	s.static(w, "app.css", "text/css; charset=utf-8")
+}
+func (s *Server) gcTheme(w http.ResponseWriter, r *http.Request) {
+	s.static(w, "gc-theme.css", "text/css; charset=utf-8")
 }
 func (s *Server) js(w http.ResponseWriter, r *http.Request) {
 	s.static(w, "app.js", "text/javascript; charset=utf-8")
