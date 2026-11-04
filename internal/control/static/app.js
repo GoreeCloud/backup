@@ -1,5 +1,22 @@
 (() => {
   'use strict';
+  // UI preference only. Authentication secrets remain strictly in tab memory.
+  const preferenceKey = 'gc-backup-appearance';
+  const appearanceButtons = [...document.querySelectorAll('.appearance-toggle')];
+  function applyAppearance(value, persist = false) {
+    const mode = value === 'dark' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-gc-mode', mode);
+    for (const button of appearanceButtons) button.setAttribute('aria-pressed', String(mode === 'dark'));
+    if (persist) {
+      try { localStorage.setItem(preferenceKey, mode); } catch (_) { /* storage denied: session-only preference */ }
+    }
+  }
+  let savedAppearance;
+  try { savedAppearance = localStorage.getItem(preferenceKey); } catch (_) { /* stay light */ }
+  applyAppearance(savedAppearance);
+  for (const button of appearanceButtons) button.addEventListener('click', () => {
+    applyAppearance(document.documentElement.getAttribute('data-gc-mode') === 'dark' ? 'light' : 'dark', true);
+  });
   let secret = '';
   const $ = (id) => document.getElementById(id);
   const auth = $('auth-dialog');
