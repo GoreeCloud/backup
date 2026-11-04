@@ -5,3 +5,14 @@
 .job-status.cancelled{color:#abb8c8;border-color:#5a6c80}
 .cancel-job{margin-top:12px;min-height:36px}
 .cancel-job:disabled{opacity:.72}
+
+/* GC UI responsive navigation acceptance: keep section labels visible on phones.
+   The compact 80px rail above 760px may stay icon-only; the horizontal
+   phone navigation must not inherit its font-size:0 hiding rule. */
+@media (max-width:760px) {
+  .rail { display:grid; grid-template-columns:minmax(0,1fr); align-items:stretch; row-gap:10px; }
+  .brand>span:last-child { display:block; }
+  .rail nav { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; width:100%; }
+  .nav-link { font-size:12px; line-height:1.35; white-space:nowrap; gap:6px; min-width:0; min-height:44px; padding:8px 5px; justify-content:center; }
+  .nav-link span { width:auto; font-size:18px; }
+}
