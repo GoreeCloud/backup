@@ -55,6 +55,7 @@ func TestLightFirstAppearanceContract(t *testing.T) {
 		`--gc-v1-color-primary:#5145D9;`,
 		`@media (forced-colors:active)`,
 		`.appearance-toggle {min-height:44px;}`,
+		`:root[data-gc-mode="dark"] .footer`,
 	} {
 		if !strings.Contains(css, required) {
 			t.Errorf("missing GC UI semantic color or contrast contract %q", required)
