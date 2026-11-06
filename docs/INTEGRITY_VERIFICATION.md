@@ -36,6 +36,16 @@ With trusted `kopia` and `rclone` executables available, an operator can run `py
 The GitHub CI workflow validates script syntax but **does not execute** this live-engine acceptance script. One isolated Linux live-engine run with real Kopia 0.23.1 and Rclone 1.75.2 completed successfully on November 3, 2026; see `docs/TEST_EVIDENCE_2026-11-03.md`. Other platforms, cloud providers, large repositories, cancellation/error paths and production restore readiness remain unverified.
 
 
+## Cross-product GoreeCloud Git encrypted restore acceptance (November 6, 2026)
+
+The separately maintained [GoreeCloud Git](https://github.com/GoreeCloud/git) project now includes an **explicitly opt-in** integration harness, [`scripts/smoke-backup-api-git-recovery.py`](https://github.com/GoreeCloud/git/blob/main/scripts/smoke-backup-api-git-recovery.py), merged as [Git PR #23](https://github.com/GoreeCloud/git/pull/23). It tests the **actual authenticated loopback GoreeCloud Backup API** against a private **synthetic** bare Git fixture, delegating to an independently verified Kopia executable.
+
+**Verified on an authorized Linux development laptop:** This Backup service was built offline from source commit `944fec373acfbf72112b0dc3f5d5f0a75dbf8e4c` with Go 1.27.3 and no external Go module downloads; `go test ./...` and `go vet ./...` passed. An external official Kopia v0.23.1 Linux x64 release matched its published SHA-256 `416d0f84a3dbb321a8b2d8f0997b1a0a6e915babe79ee76fa6e4d2bd1e1c5178`. The source, compiled service and Kopia executable were mounted **read-only** into a network-isolated Bubblewrap sandbox, with temporary encrypted repository data, credentials and Git objects contained in private scratch space. The separate [Git integration PR #23](https://github.com/GoreeCloud/git/pull/23) and its Python 3.11–3.13 CI passed.
+
+The real API test exercised snapshot creation, **fresh-cache structural and 100% file verification**, snapshot listing, rejection of unauthenticated API requests, missing confirmation and occupied restore destinations, restoring to a new private Git root, Git ref and receive-settings comparison, `git fsck`, native clone comparison and rotation of the restored synthetic web token. It **passed twice**. Neither Backup nor Git changed actual host accounts, production credentials, networking, private data or real connected repositories during these tests.
+
+**Evidence boundary:** The harness is not started by normal CI, does **not** deploy a GoreeCloud Git service, and does **not** prove encrypted **off-host** replication, real disaster recovery or operator key escrow, production scheduling reliability, operational RPO/RTO, host quotas, cross-platform support, or an owner-approved production release. The existing GoreeCloud Backup development alpha and its normal public-source authorization boundaries are unchanged.
+
 ## Optional post-backup verification from the Linux trigger
 
 The local `goreecloud-backup-trigger` CLI can run `-verify-after=structure`
