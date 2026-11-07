@@ -85,6 +85,8 @@ The job creation endpoint returns HTTP 202 and a job ID. Query `GET /api/v1/jobs
 
 ## Security boundaries and known limitations
 
+Sensitive Bitwarden-compatible and Vaultwarden exports need **encrypted storage and a verified recovery key**, not just restrictive file permissions. Follow the [portable vault export safety gates](docs/PORTABLE_VAULT_EXPORT_SAFETY.md) before placing credential exports on removable media or retiring plaintext copies. These instructions do not imply that the current development alpha encrypts existing files in place or has passed a production recovery gate.
+
 - Only allowlisted subcommands execute. No shell expansion or arbitrary command execution is exposed through the API.
 - Do **not** use this development service on a shared untrusted operating-system account. The same Kopia/Rclone host credentials may be accessible to the service and to processes running as its user.
 - The API token is filtered out of child processes' environments. Kopia passwords and Rclone configuration remain externally managed; this app does not store them.
