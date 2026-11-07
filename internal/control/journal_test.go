@@ -168,3 +168,61 @@ func TestJournalDoesNotCarrySyncPreviewAuthorizationAcrossRestart(t *testing.T) 
 		t.Fatalf("old preview could authorize sync after restart: %d %s", res.Code, res.Body.String())
 	}
 }
+
+// TestJournalOpenedFileIdentity deterministically exercises the post-open
+// identity/permission check without racing against a background attacker.
+func TestJournalOpenedFileIdentity(t *testing.T) {
+	folder := t.TempDir()
+	original := filepath.Join(folder, "jobs.json")
+	replacement := filepath.Join(folder, "replacement.json")
+	state := []byte(`{"schema":1,"jobs":[]}`)
+	if err := os.WriteFile(original, state, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(replacement, state, 0600); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Lstat(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	correct, err := os.Open(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer correct.Close()
+	if err := validateOpenedJournalFile(before, correct); err != nil {
+		t.Fatalf("original private state rejected: %v", err)
+	}
+	other, err := os.Open(replacement)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer other.Close()
+	if err := validateOpenedJournalFile(before, other); err == nil {
+		t.Fatal("accepted a different inode as the previously inspected journal")
+	}
+	if err := os.Chmod(original, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateOpenedJournalFile(before, correct); err == nil {
+		t.Fatal("accepted a journal that became group/world readable after inspection")
+	}
+}
+
+func TestJournalRejectsSymlinkedFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	other := filepath.Join(t.TempDir(), "other.json")
+	if err := os.WriteFile(other, []byte(`{"schema":1,"jobs":[]}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(other, filepath.Join(dir, "jobs.json")); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	if _, _, err := OpenJobJournal(dir); err == nil {
+		t.Fatal("accepted symlink pointing to a private JSON journal")
+	}
+}

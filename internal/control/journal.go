@@ -67,6 +67,12 @@ func OpenJobJournal(dir string) (*JobJournal, []*Job, error) {
 		return nil, nil, err
 	}
 	defer file.Close()
+	// Lstat validated the path before Open; recheck the opened inode so a
+	// replacement between those operations cannot silently redirect journal
+	// recovery to another file. This remains a local same-UID race boundary.
+	if err := validateOpenedJournalFile(info, file); err != nil {
+		return nil, nil, err
+	}
 	decoder := json.NewDecoder(io.LimitReader(file, maxJournalBytes+1))
 	decoder.DisallowUnknownFields()
 	var state journalFile
@@ -109,6 +115,20 @@ func OpenJobJournal(dir string) (*JobJournal, []*Job, error) {
 		}
 	}
 	return j, recovered, nil
+}
+
+// validateOpenedJournalFile rejects an unexpected file replacement after
+// the private path was inspected and before the journal is decoded.
+func validateOpenedJournalFile(previous os.FileInfo, opened *os.File) error {
+	actual, err := opened.Stat()
+	if err != nil {
+		return fmt.Errorf("inspect opened private state: %w", err)
+	}
+	if !os.SameFile(previous, actual) || !actual.Mode().IsRegular() ||
+		actual.Mode().Perm()&0077 != 0 || actual.Size() > maxJournalBytes {
+		return errors.New("private state file changed during opening or is unsafe")
+	}
+	return nil
 }
 
 func (j *JobJournal) Persist(jobs []*Job) error {
