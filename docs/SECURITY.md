@@ -155,3 +155,20 @@ invalid timestamps, public permissions and deleted/symlinked private files
 are rejected. A displayed `claimed` slot remains uncertain until the
 operator inspects the actual backup repository; read-only status is **not**
 an incident audit trail or verified backup catalog.
+
+
+## Journal file identity at startup
+
+The optional local jobs-status journal is validated as a bounded, private,
+regular file before opening and now **revalidates the exact opened inode**
+(using `os.SameFile`), owner-only permissions, regular-file type, and size
+before decoding history. This narrows the local pathname-replacement race
+between checking and opening an existing `jobs.json`. It also rejects
+symlinked state files. Unit tests cover a substituted same-content inode
+and a file that becomes group/world-readable after the initial check.
+
+This is **not a complete same-UID hostile-process or arbitrary-filesystem
+race defense**: a privileged actor or the service account itself could
+replace the state directory or race later writes. Run the loopback service
+under a trusted dedicated account and a private directory. No journal data
+or production backup storage is migrated or modified by this check.
