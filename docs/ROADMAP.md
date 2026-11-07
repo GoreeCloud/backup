@@ -63,6 +63,17 @@ multiple hosts and production deployment. See `docs/DURABLE_SCHEDULING.md`.
 
 The 32-section specification includes hundreds of features. Many are **upstream capability targets** (Kopia and Rclone), not direct exposed functions of the current control plane. Features such as an integrated scheduling UI and policy API, Android, iOS, multi-tenant SSO, immutable backups, OS images and AI remain work items, not shipped functions.
 
+## Partial recovery acceptance: independently copied local encrypted repository
+
+On November 7, 2026 a disposable Linux recovery test established that an
+encrypted Kopia repository can be copied to a separate local directory,
+connected with a fresh configuration/cache and restored byte-identically
+via the real authenticated Backup API after the original paths are made
+unavailable. It also checked password rejection, restore non-overwrite,
+full verification and journal privacy. **This is not off-host acceptance**;
+cloud transfer, separate-host recovery and credentials escrow remain open.
+See [test limitations](REPOSITORY_COPY_RECOVERY.md).
+
 ## Acceptance gates
 
 A successful compile or test is not a stable release. Accept each target only after live integration testing, backup-to-restore proof, threat review, visual screenshot audit, recovery drill, and platform-specific packaging and installation tests. Do not deploy this milestone to a VPS as a production service.
