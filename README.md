@@ -113,6 +113,17 @@ The alpha, including opt-in private job metadata persistence and restart-recover
 
 **Cross-product Git integration evidence (November 6, 2026):** [GoreeCloud Git PR #23](https://github.com/GoreeCloud/git/pull/23) added an opt-in test of this **actual bearer-authenticated Backup API** with real Kopia encrypted snapshot, fresh-cache full verification and isolated restore of a synthetic private bare Git repository. It passed twice inside an offline disposable sandbox. See [Git restore acceptance evidence](docs/INTEGRITY_VERIFICATION.md). This does **not** establish off-host disaster recovery or production readiness.
 
+**Encrypted repository-copy recovery (local Linux acceptance, November 7, 2026):**
+An opt-in [disposable test](scripts/smoke-repository-copy-recovery.py)
+established that a copied encrypted Kopia repository can be reconnected through
+a fresh configuration/cache and restored through the authenticated Backup API
+after the original source, repository and configuration paths become
+unavailable. Wrong-password authentication, 100% content verification,
+restore non-overwrite and SHA-256 file comparison passed.
+This is *same-host repository portability*, **not real offsite replication**,
+Rclone transfer acceptance, independently stored credentials or production
+disaster recovery. See [scope and limitations](docs/REPOSITORY_COPY_RECOVERY.md).
+
 ## Third-party attribution
 
 Kopia: https://github.com/kopia/kopia | Rclone: https://github.com/rclone/rclone. The project invokes these tools as independent executables; their source is not copied here. A repository license for original GoreeCloud source is **not yet selected**. Public visibility does not grant an implied open-source license.

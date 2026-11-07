@@ -46,6 +46,22 @@ The real API test exercised snapshot creation, **fresh-cache structural and 100%
 
 **Evidence boundary:** The harness is not started by normal CI, does **not** deploy a GoreeCloud Git service, and does **not** prove encrypted **off-host** replication, real disaster recovery or operator key escrow, production scheduling reliability, operational RPO/RTO, host quotas, cross-platform support, or an owner-approved production release. The existing GoreeCloud Backup development alpha and its normal public-source authorization boundaries are unchanged.
 
+## Isolated repository-copy restore acceptance (November 7, 2026)
+
+The separate [disposable copy/recovery test](../scripts/smoke-repository-copy-recovery.py)
+uses a fresh encrypted local Kopia repository, verifies a synthetic snapshot
+through the real Backup API, and copies the encrypted repository to an
+independent *local* directory with a SHA-256 file comparison. After making
+the original repository/source/configuration paths unavailable inside this
+temporary fixture, it reconnects with new Kopia configuration and empty cache,
+rejects an incorrect repository password, reruns structural and full
+verification, and restores byte-identical files through a newly authenticated
+API service. Occupied restore destinations are rejected. See
+[precise evidence and remaining gates](REPOSITORY_COPY_RECOVERY.md).
+
+**This verifies same-host copied-repository portability only, not an off-host,
+cloud, Rclone-transport, or production recovery guarantee.**
+
 ## Optional post-backup verification from the Linux trigger
 
 The local `goreecloud-backup-trigger` CLI can run `-verify-after=structure`

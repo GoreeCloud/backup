@@ -63,6 +63,17 @@ multiple hosts and production deployment. See `docs/DURABLE_SCHEDULING.md`.
 
 The 32-section specification includes hundreds of features. Many are **upstream capability targets** (Kopia and Rclone), not direct exposed functions of the current control plane. Features such as an integrated scheduling UI and policy API, Android, iOS, multi-tenant SSO, immutable backups, OS images and AI remain work items, not shipped functions.
 
+## Partial copied-repository recovery acceptance
+
+A November 7, 2026 disposable Linux test verified that the authenticated
+Backup API can restore byte-identical synthetic content from an independently
+copied encrypted repository after original paths become unavailable. Fresh
+Kopia config/cache, full verification, wrong-key rejection, private journals
+and the non-overwrite restore guard were tested. This remains *same-host*
+simulation: genuine offsite transport, independent device/host recovery,
+operator key escrow, and production disaster-recovery criteria remain OPEN.
+See [repository-copy recovery evidence](REPOSITORY_COPY_RECOVERY.md).
+
 ## Acceptance gates
 
 A successful compile or test is not a stable release. Accept each target only after live integration testing, backup-to-restore proof, threat review, visual screenshot audit, recovery drill, and platform-specific packaging and installation tests. Do not deploy this milestone to a VPS as a production service.
