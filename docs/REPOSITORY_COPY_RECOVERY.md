@@ -55,6 +55,12 @@ API produced byte-for-byte equivalent synthetic data. It also exercises
 password rejection and the non-overwrite guard. This is a more substantial
 recovery check than a successful backup or verification command alone.
 
+## Related GoreeCloud Git encrypted-copy acceptance (November 7, 2026)
+
+The separate [GoreeCloud Git PR #26](https://github.com/GoreeCloud/git/pull/26) merged an **opt-in Git-specific integration test** into the public [Git repository](https://github.com/GoreeCloud/git/blob/main/scripts/smoke-backup-api-git-recovery.py). It reuses the actual authenticated GoreeCloud Backup API and independently verified Kopia CLI, but exercises a **synthetic private bare Git repository** rather than ordinary files. The test first snapshots and restores Git locally, then checks SHA-256 digests of a second *local* encrypted Kopia repository copy. It stops the original API, makes the original synthetic source/repository/config paths unavailable, rejects incorrect Kopia credentials and the first API token, connects with fresh client config and cache, and verifies/restores via a second authenticated Backup instance. Git refs, receive protections, `git fsck`, a native clone and restored web-token rotation are checked.
+
+**Verified development evidence:** The Git test passed with exit code 0 inside an offline Bubblewrap sandbox, using the inspected GoreeCloud Backup source commit `d79b13f0f0494bad61b6be23cb0307acb5c37e67` and a checksum-verified official Kopia v0.23.1 binary. Git [PR #26](https://github.com/GoreeCloud/git/pull/26) and [post-merge Python CI](https://github.com/GoreeCloud/git/actions/runs/42437673784) passed, with **87/87** local Python tests. Independently, this Backup source manifest, offline Go race tests and vet passed. The two repositories' scripts are **separate opt-in evidence**, not unattended backup automation. Neither script proves remote/cloud copy durability, escrow of real credentials, or recovery of production Git data.
+
 ## Important limitations and next acceptance gates
 
 - The original and copied repositories are on the **same host** and may reside
