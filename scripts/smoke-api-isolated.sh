@@ -2,7 +2,7 @@
 # Test the first-party HTTP API against synthetic, isolated Kopia data.
 set -euo pipefail
 umask 077
-for tool in go kopia curl python3 openssl; do
+for tool in go kopia curl python3 openssl bwrap; do
   command -v "$tool" >/dev/null || { echo "missing prerequisite: $tool" >&2; exit 1; }
 done
 
@@ -20,6 +20,20 @@ trap cleanup EXIT
 
 mkdir -p "$work/source/Documents" "$work/repository" "$work/cache" "$work/logs" "$work/recovery"
 chmod 700 "$work/recovery"
+# Prove mount isolation against a synthetic sentinel outside the writable
+# recovery workspace before invoking Kopia. No existing host files are touched.
+printf 'protected synthetic data
+' >"$work/outside-sentinel"
+mkdir -p "$work/recovery/sandbox-probe"
+if bwrap --die-with-parent --unshare-user --unshare-pid --ro-bind / / \
+  --proc /proc --dev /dev --bind "$work/recovery/sandbox-probe" "$work/recovery/sandbox-probe" \
+  -- /bin/sh -c 'printf modified > "$1"' _ "$work/outside-sentinel" >"$work/bwrap-probe.log" 2>&1; then
+  echo 'FAIL: restore sandbox can write outside the permitted workspace' >&2
+  exit 1
+fi
+grep -qx 'protected synthetic data' "$work/outside-sentinel" || { echo 'FAIL: synthetic outside data changed' >&2; exit 1; }
+echo 'PASS: Linux restore sandbox cannot write outside its assigned host workspace'
+
 printf 'GoreeCloud Backup synthetic HTTP integration test\n' >"$work/source/Documents/hello.txt"
 mkdir -p "$work/source/Documents/nested"
 printf 'nested unicode and recovery metadata\n' >"$work/source/Documents/nested/Grüße-東京.txt"

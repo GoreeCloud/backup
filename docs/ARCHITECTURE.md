@@ -43,7 +43,7 @@ The service stores no database; Kopia's own repository and config own durable st
 
 ## HTTP boundary hardening
 
-Bearer token and JSON Content-Type headers are deliberately single-valued; ambiguous multiple values are rejected. The bundled web renderer serves only regular files contained inside its canonical web root, rejecting symlinks to external files and avoiding directory listings. Contained restores perform a post-write symlink/special-file audit and fail closed when unsafe files are discovered; this is not a filesystem sandbox or a claim of pre-write containment. See `docs/SECURITY.md` for the residual risk.
+Bearer token and JSON Content-Type headers are deliberately single-valued; ambiguous multiple values are rejected. The bundled web renderer serves only regular files contained inside its canonical web root, rejecting symlinks to external files and avoiding directory listings. Contained restores perform a post-write symlink/special-file audit and fail closed when unsafe files are discovered; the Linux Bubblewrap mount sandbox separately constrains restore writes to a private workspace. See `docs/SECURITY.md` for the residual risk.
 
 ## Android recovery companion
 
@@ -56,3 +56,5 @@ The API requires an authenticated, single-valued configured Rclone remote name e
 ## Local bind enforcement
 
 The API validates `GCB_LISTEN` as a numeric 127.0.0.1 or IPv6 `::1` address with an explicit nonzero port and refuses wildcard/listen-on-all-interface configurations. External HTTPS ingress is independently provisioned and out of this repository's deployment scope.
+
+Linux contained restoration runs Kopia through an explicit Bubblewrap mount namespace with a read-only host root and the private, newly allocated restore workspace as its sole writable host bind mount; temp/cache/log directories are contained inside that workspace. This is an additional pre-write filesystem boundary beyond the post-write recovered-file audit. It requires the `bwrap` executable. Network access remains available for remote repositories, and this setup does not replace a least-privileged service account or full recovery certification.

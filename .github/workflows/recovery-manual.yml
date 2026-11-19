@@ -22,6 +22,8 @@ jobs:
             third_party/rclone/go.sum
       - name: Verify pinned imported engine source
         run: sha256sum -c --status third_party/sources.sha256
+      - name: Install disposable recovery sandbox
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap
       - name: Compile the included Kopia and Rclone sources
         run: ./scripts/build-upstreams.sh
       - name: Isolated encrypted archive, deduplication and restore

@@ -120,3 +120,8 @@ No analytics, advertising trackers or cloud accounts are configured by this proj
 ## Roadmap
 
 See [Objectives](docs/OBJECTIVES.md), [Features](docs/FEATURES.md) and [Roadmap](docs/ROADMAP.md). Contributions are welcome through reviewable pull requests; please do not file public issues with passwords, cloud paths or personal data.
+
+
+### Linux contained-restore sandbox
+
+The development API requires [Bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`) for the opt-in contained restore on Linux. The Kopia restore subprocess sees the host filesystem read-only, with only a new private restore workspace writable. Configure a private restore root separate from the source; do not run the API as root. Web and Android report restore disabled when the sandbox executable is unavailable. Remote repositories still require network access, and this isolation is not a substitute for recovery drills, independent permissions testing or untrusted multi-tenant workload separation.

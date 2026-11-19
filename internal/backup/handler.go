@@ -169,7 +169,7 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 	respond(w, status, map[string]string{"error": msg})
 }
 func (h *Handler) info(w http.ResponseWriter, r *http.Request) {
-	respond(w, 200, map[string]any{"name": "GoreeCloud Backup", "version": "0.1.0-dev", "features": []string{"kopia-status", "snapshot-list", "snapshot-create", "rclone-remotes", "rclone-remote-capacity", "full-file-verify", "contained-restore"}, "sourceRoot": h.root, "restoreEnabled": h.restoreRoot != ""})
+	respond(w, 200, map[string]any{"name": "GoreeCloud Backup", "version": "0.1.0-dev", "features": []string{"kopia-status", "snapshot-list", "snapshot-create", "rclone-remotes", "rclone-remote-capacity", "full-file-verify", "contained-restore"}, "sourceRoot": h.root, "restoreEnabled": h.restoreRoot != "" && restoreSandboxAvailable()})
 }
 func run(ctx context.Context, exe string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, exe, args...)
