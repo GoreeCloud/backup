@@ -10,10 +10,12 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -47,8 +49,26 @@ func ConfigFromEnv() (Config, error) {
 	if cfg.SourceRoot == "" {
 		return Config{}, errors.New("GCB_SOURCE_ROOT is required")
 	}
-	// Deliberately default to loopback; expose through a separately secured TLS proxy/VPN only.
+	// Plain HTTP carries a bearer credential. Refuse to bind it to network
+	// interfaces or hostnames; use a separate HTTPS reverse proxy instead.
+	if err := validateListen(cfg.Listen); err != nil {
+		return Config{}, err
+	}
 	return cfg, nil
+}
+
+// validateListen accepts only literal numeric loopback addresses, avoiding
+// DNS rebinding and accidental 0.0.0.0/:: exposure of the bearer-token API.
+func validateListen(address string) error {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil || (host != "127.0.0.1" && host != "::1") {
+		return errors.New("GCB_LISTEN must use numeric loopback 127.0.0.1 or [::1]")
+	}
+	value, err := strconv.Atoi(port)
+	if err != nil || value < 1 || value > 65535 {
+		return errors.New("GCB_LISTEN must specify a valid TCP port")
+	}
+	return nil
 }
 func value(key, fallback string) string {
 	v := os.Getenv(key)
@@ -58,6 +78,12 @@ func value(key, fallback string) string {
 	return v
 }
 func NewHandler(cfg Config) (http.Handler, error) {
+	if cfg.Listen != "" {
+		if err := validateListen(cfg.Listen); err != nil {
+			return nil, err
+		}
+	}
+
 	if len(cfg.Token) < 32 {
 		return nil, errors.New("token must be at least 32 bytes")
 	}

@@ -120,3 +120,8 @@ No analytics, advertising trackers or cloud accounts are configured by this proj
 ## Roadmap
 
 See [Objectives](docs/OBJECTIVES.md), [Features](docs/FEATURES.md) and [Roadmap](docs/ROADMAP.md). Contributions are welcome through reviewable pull requests; please do not file public issues with passwords, cloud paths or personal data.
+
+
+### Loopback-only API binding
+
+Because the development API uses a reusable bearer token over HTTP, `GCB_LISTEN` accepts **only** `127.0.0.1:<port>` and `[::1]:<port>`. It rejects all-interface bindings, DNS names and remote addresses. A separately managed HTTPS reverse proxy or authenticated VPN is required for access from other devices; do not expose the plain API to the LAN or public Internet. This validation occurs at startup and does not configure a proxy or VPN.

@@ -58,3 +58,8 @@ The optional quota endpoint uses fixed Rclone CLI arguments and accepts only a r
 ## Encrypted-pack corruption regression
 
 `smoke-corruption-isolated.sh` creates a newly provisioned local Kopia repository under `mktemp`, snapshots deterministic synthetic bytes, validates the healthy repository, then flips one byte within its largest non-configuration encrypted pack. It switches to a fresh cache before verifying that tampering is detected. The test is included only in the **manually dispatched** recovery workflow to avoid unexpected CI costs. No real repositories or upstream credential material are accessed or modified. Passing this test does not prove recoverability after malicious modification of every object, deletion, interrupted writes or remote-provider corruption.
+
+
+## Strict local API listener
+
+The server refuses plaintext bearer-token API listeners except explicit numeric loopback `127.0.0.1:<port>` or `[::1]:<port>`. Wildcards, DNS names and non-loopback addresses fail startup. Remote clients require an independent TLS-authenticated tunnel or reverse proxy with properly configured origin and access controls. Do not treat this restriction as a complete defense against local malware, reverse-proxy misconfiguration or exposed client tokens.
