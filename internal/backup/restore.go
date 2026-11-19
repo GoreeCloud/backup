@@ -145,9 +145,7 @@ func (h *Handler) restore(w http.ResponseWriter, r *http.Request) {
 	destination := filepath.Join(parent, "files")
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
 	defer cancel()
-	_, err = run(ctx, h.cfg.KopiaBin, "snapshot", "restore", objectID, destination,
-		"--no-overwrite-files", "--no-overwrite-directories", "--no-overwrite-symlinks",
-		"--skip-owners", "--skip-permissions")
+	err = runConfinedRestore(ctx, h.cfg.KopiaBin, objectID, destination, parent)
 	if err != nil {
 		// Remove only our freshly allocated private workspace on failure.
 		_ = os.RemoveAll(parent)
@@ -159,6 +157,16 @@ func (h *Handler) restore(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadGateway, "recovered snapshot contains unsafe file types or links; quarantined copy removed")
 		return
 	}
+	// Kopia's temporary cache and logs live inside the writable sandbox. Do
+	// not retain these alongside user-visible recovered files after success.
+	for _, name := range []string{"cache", "tmp", "logs"} {
+		if err := os.RemoveAll(filepath.Join(parent, name)); err != nil {
+			_ = os.RemoveAll(parent)
+			writeErr(w, http.StatusBadGateway, "unable to clean up temporary recovery caches")
+			return
+		}
+	}
+
 	respond(w, http.StatusCreated, map[string]any{
 		"restored":     true,
 		"snapshotId":   payload.SnapshotID,
