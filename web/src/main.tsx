@@ -5,6 +5,7 @@ import './styles.css'
 
 type Status = { connected: boolean; message: string }
 type Remotes = { remotes: string[] }
+type Verification = { verified: boolean; filesRead: number; bytesRead: number; note: string }
 type ServerError = { error?: string }
 const api = async <T,>(path: string, token: string, init: RequestInit = {}): Promise<T> => {
   const response = await fetch(path, {
@@ -25,6 +26,8 @@ function App() {
   const [snapshots, setSnapshots] = useState<unknown[]>([])
   const [remotes, setRemotes] = useState<string[]>([])
   const [source, setSource] = useState('')
+  const [verifyConsent, setVerifyConsent] = useState(false)
+  const [lastVerification, setLastVerification] = useState<Verification | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [lastAction, setLastAction] = useState('')
@@ -73,6 +76,22 @@ function App() {
     }
   }
 
+  const verify = async () => {
+    if (!verifyConsent || !status?.connected || busy) return
+    setBusy(true)
+    setError('')
+    setLastAction('Reading and verifying all snapshot file contents. This can be slow and consume storage-provider bandwidth.')
+    try {
+      const result = await api<Verification>('/api/v1/verify', token, { method: 'POST' })
+      setLastVerification(result)
+      setLastAction(`Verified ${result.filesRead} archived files (${result.bytesRead.toLocaleString()} bytes). A restore drill is still necessary.`)
+      setVerifyConsent(false)
+    } catch (cause) {
+      setLastVerification(null)
+      setError(cause instanceof Error ? cause.message : 'Verification failed')
+    } finally { setBusy(false) }
+  }
+
   return (
     <div className="layout">
       <aside className="sidebar" aria-label="Primary navigation">
@@ -80,6 +99,7 @@ function App() {
         <nav aria-label="Sections">
           <a href="#overview" className="nav-current">Overview</a>
           <a href="#snapshots">Snapshots</a>
+          <a href="#verification">Verify integrity</a>
           <a href="#destinations">Destinations</a>
         </nav>
         <p className="sidebar-note">Local-first · No telemetry<br />Development preview v0.1.0</p>
@@ -120,6 +140,13 @@ function App() {
                 <div><label htmlFor="source">Source directory (relative)</label><input id="source" value={source} onChange={e => setSource(e.target.value)} placeholder="Documents" required disabled={busy} /></div>
                 <button type="submit" disabled={busy || !status?.connected}>{busy ? 'Working…' : 'Back up now'}</button>
               </form>
+            </section>
+            <section className="panel" id="verification">
+              <div className="eyebrow">INTEGRITY CHECK</div><h2>Verify archived data</h2>
+              <p className="subtle">Ask Kopia to read and verify 100% of archived file contents. This may take a long time and incur provider transfer charges. It is not a substitute for an independent restoration drill.</p>
+              <label className="verify-consent"><input type="checkbox" checked={verifyConsent} onChange={e => setVerifyConsent(e.target.checked)} disabled={busy} /> I understand this operation may read all cloud-stored backup data and incur costs.</label>
+              <div className="verification-action"><button type="button" onClick={verify} disabled={busy || !verifyConsent || !status?.connected}>{busy ? 'Operation in progress…' : 'Verify all snapshot files'}</button></div>
+              {lastVerification && <p className="hint" role="status">Most recent verification in this browser session: {lastVerification.filesRead} files, {lastVerification.bytesRead.toLocaleString()} bytes read. Successful verification does not prove restore readiness.</p>}
             </section>
             <section className="panel" id="destinations">
               <div className="eyebrow">STORAGE CONNECTIONS</div><h2>Rclone remotes</h2>
