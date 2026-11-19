@@ -101,3 +101,7 @@ The browser computes SHA-256 of the user-selected file in the secure browser con
 ## Continuous enforcement of immutable workflow actions
 
 The first resolved Go module inventory workflow added an `actions/upload-artifact@v4` reference after initial immutable-action pinning. The artifact uploader is now pinned to its verified official v4 commit, and a first-party static check in the required `docs` CI job rejects mutable or abbreviated third-party action references in all GitHub workflow YAML files. This guard runs without installing actions or dependencies, and its unit tests reject floating tags/branches and truncated SHAs. A passing checker is not a substitute for examining new upstream action source and permissions before adoption.
+
+## Incomplete encrypted-pack recovery test
+
+The manual synthetic recovery workflow now includes `scripts/smoke-incomplete-pack-isolated.sh`. It first creates and verifies an encrypted local Kopia repository and verifies two clean copied mirrors, then deletes one selected encrypted pack in one mirror and truncates the corresponding pack in the other. With independent cache directories, Kopia verification must not report either damaged copy as healthy. The drill only operates under a freshly allocated temporary directory and removes it afterward. A successful regression test demonstrates **detection**, not auto-repair, cloud provider durability, resume guarantees or real-dataset recovery.

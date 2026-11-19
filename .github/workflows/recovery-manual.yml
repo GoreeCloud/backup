@@ -62,5 +62,7 @@ jobs:
         run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-isolated.sh
       - name: Isolated encrypted pack corruption detection
         run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-corruption-isolated.sh
+      - name: Isolated missing and truncated encrypted-pack recovery checks
+        run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-incomplete-pack-isolated.sh
       - name: Isolated authenticated HTTP, CLI and contained restore
         run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-api-isolated.sh

@@ -147,3 +147,7 @@ The React web workspace can also back up **one explicitly selected file** (up to
 
 
 The browser computes SHA-256 of the user-selected file in the secure browser context and checks it against the server's received-bytes receipt before reporting success. This detects accidental upload corruption or mismatched responses but is **not proof of future repository recoverability** or end-to-end encryption.
+
+### Missing/truncated encrypted-pack resilience drill
+
+The manual Recovery Integration CI includes `scripts/smoke-incomplete-pack-isolated.sh`, which creates a disposable encrypted Kopia repository, verifies byte-copied local mirror repositories before damage, then simulates both a missing pack and an interrupted/truncated pack. Fresh-cache full-content verification must fail closed in both cases. No external repositories, cloud provider, credentials or user data are accessed. This tests detection of incomplete copies, **not** automatic repair, resumable transport, or production disaster recovery.
