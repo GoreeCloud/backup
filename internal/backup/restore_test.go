@@ -63,6 +63,7 @@ func TestRestoreInputNoSideEffects(t *testing.T) {
 	} {
 		r := httptest.NewRequest("POST", "/api/v1/restore", strings.NewReader(input))
 		r.Header.Set("Authorization", "Bearer "+testToken)
+		r.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		api.ServeHTTP(w, r)
 		if w.Code != http.StatusBadRequest {
@@ -78,6 +79,7 @@ func TestRestoreInputNoSideEffects(t *testing.T) {
 	}
 	r := httptest.NewRequest("POST", "/api/v1/restore", strings.NewReader(`{"snapshotId":"deadbeef","acknowledge":true}`))
 	r.Header.Set("Authorization", "Bearer "+testToken)
+	r.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	api.ServeHTTP(w, r)
 	if w.Code != http.StatusServiceUnavailable {
@@ -98,6 +100,7 @@ func TestRestoreDisabledAndAuthorization(t *testing.T) {
 		t.Fatal(w.Code)
 	}
 	r.Header.Set("Authorization", "Bearer "+testToken)
+	r.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
 	h.ServeHTTP(w, r)
 	if w.Code != http.StatusConflict {

@@ -66,6 +66,9 @@ func (h *Handler) restore(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "restoration is disabled; configure a separate GCB_RESTORE_ROOT")
 		return
 	}
+	if !requireJSON(w, r) {
+		return
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, 4096)
 	defer r.Body.Close()
 	var payload struct {
@@ -149,6 +152,11 @@ func (h *Handler) restore(w http.ResponseWriter, r *http.Request) {
 		// Remove only our freshly allocated private workspace on failure.
 		_ = os.RemoveAll(parent)
 		writeErr(w, http.StatusBadGateway, "Kopia restore failed; inspect service logs and verify that the isolated workspace was removed")
+		return
+	}
+	if auditErr := auditRecoveredTree(destination); auditErr != nil {
+		_ = os.RemoveAll(parent)
+		writeErr(w, http.StatusBadGateway, "recovered snapshot contains unsafe file types or links; quarantined copy removed")
 		return
 	}
 	respond(w, http.StatusCreated, map[string]any{

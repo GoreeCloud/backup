@@ -39,3 +39,10 @@ The optional Linux `backupctl` reads the bearer credential from a private, regul
 ## Repeatable recovery acceptance (synthetic only)
 
 The optional workflow `recovery-manual.yml` builds the pinned Kopia/Rclone sources on an ephemeral runner and exercises two synthetic recovery scripts, including duplicated backups, Unicode and symlinks. It is manual-only to avoid unexpected cloud, build or CI costs. Neither script reads real user repositories or credentials. Success does not guarantee recovery of live databases, cloud object stores, changed permissions, enormous files, interrupted writes or an actual disaster.
+
+## API and contained-restore hardening
+
+- Authenticated requests reject duplicate or comma-joined Authorization header values to avoid ambiguity across HTTP proxies. Snapshot and contained-restore JSON requests require a single explicit `Content-Type: application/json` header; malformed or duplicated content-type fields fail closed.
+- The optional built web app is resolved to a canonical directory at startup. Static asset serving rejects files whose symlink targets resolve outside that directory and never exposes directory listings.
+- After extraction, the contained-restore workspace is audited before being announced to clients. The audit rejects absolute, dangling, out-of-workspace symlink targets and special files; a failed audit removes the temporary workspace and fails the request. Internal relative links remain supported. This may reject backups that intentionally contain dangling links.
+- **Critical limitation:** this audit runs **after** Kopia has written files. It cannot rule out writes outside the restore workspace during a malicious extraction or concurrent filesystem mutation. Run the service with an unprivileged, tightly constrained user and a filesystem sandbox, avoid untrusted repositories, and do not treat this as safe multi-tenant restoration. A pre-extraction object-tree validator and mount-namespace isolation remain release blockers.

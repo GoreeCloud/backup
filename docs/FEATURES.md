@@ -11,7 +11,7 @@
 | Web app | React/TypeScript source | Browser and accessibility acceptance not yet complete |
 | Android app | Kotlin/Jetpack Compose read-only source | CI debug APK available for testing; signed production APK and physical-device acceptance pending |
 | Rclone backend as Kopia storage | Upstream CLI setup only | Experimental/not maintained upstream; not validated here |
-| Contained restore via API and web | Implemented, disabled unless `GCB_RESTORE_ROOT` is configured | An isolated synthetic HTTP restore passed including nested paths/symlinks/Unicode/large files; no arbitrary restore destination or live overwrite |
+| Contained restore via API and web | Implemented, disabled unless `GCB_RESTORE_ROOT` is configured | An isolated synthetic HTTP restore passed including nested paths/symlinks/Unicode/large files; post-write unsafe-symlink/special-file audit added, but process isolation is pending |
 | Advanced recovery browsing, pruning, retention UI | Planned | Requires safe restore-target handling and nonproduction drills |
 | Opt-in Linux systemd scheduled snapshots | Source templates and protected local CLI implemented | Explicit operator installation required; not active or deployed |
 | Cross-platform schedule UI, alerts and persistent job management | Planned | Needs durable scheduler, state tracking and secure notifications |

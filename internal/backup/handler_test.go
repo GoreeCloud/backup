@@ -70,6 +70,7 @@ func TestMalformedBodyAndNoExecution(t *testing.T) {
 	for _, body := range []string{`{"source":"../etc"}`, `{"source":"/etc"}`, `{"source":"safe","extra":true}`, `{"source":"safe"} {}`} {
 		r := httptest.NewRequest("POST", "/api/v1/snapshots", strings.NewReader(body))
 		r.Header.Set("Authorization", "Bearer "+testToken)
+		r.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		if w.Code != 400 {
