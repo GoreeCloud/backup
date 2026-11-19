@@ -1,0 +1,30 @@
+name: Recovery Integration (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-recovery:
+    name: isolated-recovery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.0'
+          cache: true
+          cache-dependency-path: |
+            third_party/kopia/go.sum
+            third_party/rclone/go.sum
+      - name: Verify pinned imported engine source
+        run: sha256sum -c --status third_party/sources.sha256
+      - name: Compile the included Kopia and Rclone sources
+        run: ./scripts/build-upstreams.sh
+      - name: Isolated encrypted archive, deduplication and restore
+        run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-isolated.sh
+      - name: Isolated authenticated HTTP, CLI and contained restore
+        run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-api-isolated.sh

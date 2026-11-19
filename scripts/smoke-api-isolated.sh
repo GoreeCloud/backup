@@ -21,6 +21,13 @@ trap cleanup EXIT
 mkdir -p "$work/source/Documents" "$work/repository" "$work/cache" "$work/logs" "$work/recovery"
 chmod 700 "$work/recovery"
 printf 'GoreeCloud Backup synthetic HTTP integration test\n' >"$work/source/Documents/hello.txt"
+mkdir -p "$work/source/Documents/nested"
+printf 'nested unicode and recovery metadata\n' >"$work/source/Documents/nested/Grüße-東京.txt"
+ln -s "hello.txt" "$work/source/Documents/relative-link"
+python3 - "$work/source/Documents/large.bin" <<'PYDATA'
+import pathlib,sys
+pathlib.Path(sys.argv[1]).write_bytes((b'GoreeCloud API recovery fixture ' * 160000)[:5_000_000])
+PYDATA
 
 export KOPIA_CONFIG_PATH="$work/kopia.config"
 export KOPIA_PASSWORD='synthetic-private-local-repository-no-production-data'
@@ -89,11 +96,21 @@ assert not relative.is_absolute() and '..' not in relative.parts,result
 recovered=(pathlib.Path(sys.argv[2])/str(relative))
 original=pathlib.Path(sys.argv[3])
 assert recovered.is_dir(),recovered
-names=sorted(p.name for p in original.iterdir())
-assert names==sorted(p.name for p in recovered.iterdir()),names
-for filename in names:
- assert filecmp.cmp(original/filename,recovered/filename,shallow=False),filename
-print('PASS: isolated API restore placed verified snapshot files in a fresh private destination')
+def relative_entries(directory):
+ return {p.relative_to(directory).as_posix():p for p in directory.rglob('*')}
+a=relative_entries(original)
+b=relative_entries(recovered)
+assert a.keys()==b.keys(),(sorted(a),sorted(b))
+for name,src in a.items():
+ dst=b[name]
+ if src.is_symlink():
+  assert dst.is_symlink() and src.readlink()==dst.readlink(),name
+ elif src.is_dir():
+  assert dst.is_dir(),name
+ else:
+  assert src.is_file() and dst.is_file(),name
+  assert filecmp.cmp(src,dst,shallow=False),name
+print('PASS: contained API restore preserved nested, unicode, symlink and large-file fixtures')
 PYCOMPARE
 
 python3 - "$work/created.json" "$work/list.json" "$work/verify.json" <<'PY'
