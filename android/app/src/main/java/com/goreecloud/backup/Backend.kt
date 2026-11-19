@@ -1,5 +1,10 @@
 package com.goreecloud.backup
 
+import android.content.ContentResolver
+import android.util.Base64
+import android.net.Uri
+import android.provider.OpenableColumns
+
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -87,6 +92,7 @@ internal data class Overview(
     val snapshots: List<SnapshotSummary>,
     val remotesCount: Int?,
     val restoreEnabled: Boolean,
+    val mobileUploadEnabled: Boolean,
     val notes: List<String>
 )
 
@@ -117,11 +123,68 @@ internal fun fetchOverview(server: URL, token: String): Overview {
         notes += "Rclone remotes are unavailable."
         null
     }
-    val canRestore = try {
-        JSONObject(apiJson(server, "/api/v1/info", token)).optBoolean("restoreEnabled", false)
+    val info = try {
+        JSONObject(apiJson(server, "/api/v1/info", token))
     } catch (_: Exception) {
-        notes += "Restore capability could not be checked."
-        false
+        notes += "Restore and mobile ingest capabilities could not be checked."
+        null
     }
-    return Overview(status.optBoolean("connected", false), snapshots, remotes, canRestore, notes)
+    return Overview(status.optBoolean("connected", false), snapshots, remotes,
+        info?.optBoolean("restoreEnabled", false) ?: false,
+        info?.optBoolean("mobileUploadEnabled", false) ?: false,
+        notes)
+}
+
+/** Streams one SAF-selected file to the authenticated opt-in ingest endpoint.
+ * No file bytes or content URI are stored in app storage or sent as URL params.
+ */
+internal fun uploadSelectedDocument(
+    resolver: ContentResolver, uri: Uri, server: URL, token: String
+): JSONObject {
+    require(server.protocol == "https") { "Trusted HTTPS is required." }
+    require(token.length in 32..1024 && token.none { it.isWhitespace() }) { "Invalid token." }
+    val fileName = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) cursor.getString(0) else null
+    } ?: throw IllegalArgumentException("Selected document has no display name.")
+    require(fileName.length in 1..160 && fileName.none { it.isISOControl() || it == '/' || it == '\\' } && fileName != "." && fileName != "..") {
+        "Selected document name is not supported."
+    }
+    val connection = URL(server.toString().trimEnd('/') + "/api/v1/mobile/files").openConnection() as HttpURLConnection
+    try {
+        connection.instanceFollowRedirects = false
+        connection.requestMethod = "POST"
+        connection.setRequestProperty("Authorization", "Bearer $token")
+        connection.setRequestProperty("Content-Type", "application/octet-stream")
+        connection.setRequestProperty("X-GCB-Filename-B64", Base64.encodeToString(
+            fileName.toByteArray(Charsets.UTF_8), Base64.NO_WRAP or Base64.URL_SAFE or Base64.NO_PADDING
+        ))
+        connection.setRequestProperty("X-GCB-Confirm-Upload", "true")
+        connection.setRequestProperty("Accept", "application/json")
+        connection.connectTimeout = 8_000
+        connection.readTimeout = 30 * 60 * 1000
+        connection.useCaches = false
+        connection.doOutput = true
+        connection.setChunkedStreamingMode(8192)
+        resolver.openInputStream(uri)?.use { source ->
+            connection.outputStream.use { destination ->
+                val bytes = ByteArray(8192)
+                var total = 0L
+                while (true) {
+                    val read = source.read(bytes)
+                    if (read < 0) break
+                    total += read
+                    require(total <= 32L * 1024L * 1024L) { "Selected file exceeds the 32 MiB limit." }
+                    destination.write(bytes, 0, read)
+                }
+                require(total > 0) { "The selected document is empty." }
+            }
+        } ?: throw IllegalArgumentException("Selected document cannot be opened.")
+        val code = connection.responseCode
+        if (code != 201) throw IllegalStateException("Selected-file backup failed (HTTP $code).")
+        val result = JSONObject(boundedResponse(connection))
+        require(result.optBoolean("backedUp", false)) { "Backup completion was not confirmed." }
+        return result
+    } finally {
+        connection.disconnect()
+    }
 }

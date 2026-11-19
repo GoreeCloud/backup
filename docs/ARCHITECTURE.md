@@ -9,7 +9,7 @@ React web app --same-origin--> Go API <----HTTPS/VPN--- Android native recovery 
                                   +-- Rclone CLI -> configured remote names
 ```
 
-Kopia creates encrypted snapshots, with deduplication/compression provided by upstream Kopia. GoreeCloud Backup does not implement custom encryption or reinterpret repository objects. The first-party API is a control plane, not a file server. No backup bytes or cloud credentials are transmitted to the browser or Android client. Rclone remote names are exposed only to authorized clients.
+Kopia creates encrypted snapshots, with deduplication/compression provided by upstream Kopia. GoreeCloud Backup does not implement custom encryption or reinterpret repository objects. The first-party API is primarily a control plane. Its explicitly opt-in Android selected-file ingress endpoint can also receive one 32 MiB-bounded foreground upload over authenticated HTTPS and snapshot it with Kopia; no cloud credentials are transmitted to the browser or Android client. Rclone remote names are exposed only to authorized clients.
 
 ## API v1
 
@@ -47,7 +47,7 @@ Bearer token and JSON Content-Type headers are deliberately single-valued; ambig
 
 ## Android recovery companion
 
-The Kotlin/Jetpack Compose client uses authenticated, system-trusted HTTPS with redirects disabled, strict endpoint validation and a 1 MiB bounded JSON response reader. It reads repository state and up to 100 snapshot summaries and optionally requests full-file integrity verification or a contained server-side restore after explicit user acknowledgement. Rclone discovery failures do not block snapshot browsing. It does not access or upload Android device files, retain tokens, add storage permissions, or enable background jobs. Android UI controls do not replace backend authorization.
+The Kotlin/Jetpack Compose client uses authenticated, system-trusted HTTPS with redirects disabled, strict endpoint validation and a 1 MiB bounded JSON response reader. It reads repository state and up to 100 snapshot summaries and optionally requests full-file integrity verification or a contained server-side restore after explicit user acknowledgement. Rclone discovery failures do not block snapshot browsing. It can access only one explicitly system-picker-selected file at a time for a consented foreground upload, without retaining tokens, adding broad storage permissions, or enabling background jobs. Android UI controls do not replace backend authorization.
 
 ## On-demand Rclone provider quota
 
@@ -58,3 +58,6 @@ The API requires an authenticated, single-valued configured Rclone remote name e
 The API validates `GCB_LISTEN` as a numeric 127.0.0.1 or IPv6 `::1` address with an explicit nonzero port and refuses wildcard/listen-on-all-interface configurations. External HTTPS ingress is independently provisioned and out of this repository's deployment scope.
 
 Linux contained restoration runs Kopia through an explicit Bubblewrap mount namespace with a read-only host root and the private, newly allocated restore workspace as its sole writable host bind mount; temp/cache/log directories are contained inside that workspace. This is an additional pre-write filesystem boundary beyond the post-write recovered-file audit. It requires the `bwrap` executable. Network access remains available for remote repositories, and this setup does not replace a least-privileged service account or full recovery certification.
+## Opt-in Android selected-file ingress
+
+Set `GCB_MOBILE_INGEST_ROOT` to a canonical, existing, private (0700) subdirectory of `GCB_SOURCE_ROOT` to enable `POST /api/v1/mobile/files`. The endpoint requires the same bearer authentication, a unique UTF-8 leaf filename encoded as unpadded base64url in `X-GCB-Filename-B64` (up to 160 decoded bytes), explicit `X-GCB-Confirm-Upload: true`, and a single `application/octet-stream` media type. It streams at most 32 MiB, serializes with other expensive repository operations, creates an exclusive private staging file, fsyncs, and calls the configured Kopia CLI to create an encrypted snapshot. Plaintext staging is deleted on command success, error or client disconnect. The caller cannot choose a destination path. The server read timeout is two minutes, and long-running snapshot creation uses the existing 30-minute deadline. This is a foreground preview workflow, not a background sync, multi-file ingest queue or full-device backup engine.

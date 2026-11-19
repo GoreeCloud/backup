@@ -5,7 +5,7 @@
 - First-party Go orchestration API with basic authentication, path validation and serialized archive verification.
 - Kopia snapshot/status and Rclone remote-discovery adapters.
 - Import pinned upstream Kopia and Rclone sources with license notices and a verified local build script; complete transitive audits and release acceptance in later stages.
-- React web and Kotlin/Jetpack Compose Android read-only client.
+- React web and Kotlin/Jetpack Compose Android recovery client with opt-in one-file foreground device backup.
 - Baseline CI, legal attribution, security documentation and branch safeguards.
 
 ## Stage B — recoverability before expansion
@@ -20,7 +20,7 @@
 - Verified Kopia native storage destinations; independently evaluate Rclone provider compatibility.
 - GoreeCloud Identity authorization, GoreeShield retention/consent and Wardveil threat controls.
 - Mesh event/API contract after privacy and authorization gates.
-- Secure client pairing and Android foreground/work-managed backup operations.
+- Extend the implemented user-selected foreground Android file backup with secure client pairing, resume/chunking, batch file selection and verified work-managed backup operations.
 
 ## Stage D — release readiness
 

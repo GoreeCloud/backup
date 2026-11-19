@@ -17,7 +17,8 @@
 | Advanced recovery browsing, pruning, retention UI | Planned | Requires safe restore-target handling and nonproduction drills |
 | Opt-in Linux systemd scheduled snapshots | Source templates and protected local CLI implemented | Explicit operator installation required; not active or deployed |
 | Cross-platform schedule UI, alerts and persistent job management | Planned | Needs durable scheduler, state tracking and secure notifications |
-| Android device backup/restore | Planned | Scoped storage/permissions and encrypted transport needed |
+| Android one-file foreground backup | Implemented as opt-in source staging + Kopia snapshot and system-picker client | Synthetic HTTP upload, encrypt and staging cleanup tested; physical-device/upload TLS acceptance pending |
+| Bulk/automatic Android device backup and device restore | Planned | Scoped storage/permissions, policy, durable jobs and recovery drills required |
 | GoreeCloud Mesh, Identity, GoreeShield, Wardveil integration | Requirements identified | No external runtime integration claimed |
 
 Source and tests establish development capabilities, not production backup reliability.

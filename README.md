@@ -2,16 +2,16 @@
 
 **Status: development preview (not released, deployed, or recovery-certified).**
 
-GoreeCloud Backup is a local-first, open-source backup control service with a **React/TypeScript web interface** and a **native Android Kotlin/Jetpack Compose read-only companion**. It coordinates an existing Kopia CLI for client-side-encrypted, versioned snapshots and discovers configured Rclone remotes. The authoritative repository is [GoreeCloud/backup](https://github.com/GoreeCloud/backup).
+GoreeCloud Backup is a local-first, open-source backup control service with a **React/TypeScript web interface** and a **native Android Kotlin/Jetpack Compose recovery and selected-file backup client**. It coordinates an existing Kopia CLI for client-side-encrypted, versioned snapshots and discovers configured Rclone remotes. The authoritative repository is [GoreeCloud/backup](https://github.com/GoreeCloud/backup).
 
 ## What exists
 
 - Go standard-library API: token-gated repository status, JSON snapshot listing, creating encrypted snapshots from subdirectories of an allowlisted root, full-file archive integrity verification, and Rclone remote discovery and opt-in capacity reporting on supported remotes.
 - React web workspace: in-memory token connection, repository status, snapshot list, snapshot creation, cost-aware full-file verification and remote names, with visual tokens sourced from [GoreeCloud UI](https://github.com/GoreeCloud/gc-ui).
-- Native Android app: foreground-only authenticated HTTPS status, snapshot count, remote count; no stored credentials or automatic backup.
+- Native Android app: foreground-only authenticated HTTPS status, snapshot browsing and explicitly selected one-file Kopia backup with an opt-in private server inbox; no stored credentials or background backup.
 - Automated Go tests, web build, Android build workflow, security/deployment guidance and roadmap.
 
-**Not implemented:** backup schedules, production recovery certification, repository setup from the UI, Rclone file-sync operations, Android device backup, secure multi-user roles, GoreeCloud Identity/Mesh live integration, signed Android releases, and production operations. No server is deployed by this source.
+**Not implemented:** backup schedules, production recovery certification, repository setup from the UI, Rclone file-sync operations, automatic/bulk Android device backup, secure multi-user roles, GoreeCloud Identity/Mesh live integration, signed Android releases, and production operations. No server is deployed by this source.
 
 ## Included upstream source and engine builds
 
@@ -95,7 +95,7 @@ Build using `go build -o build/bin/goreecloud-backupctl ./cmd/backupctl`. See [t
 
 ## Android
 
-Import `android/` into Android Studio with JDK 17 and Android SDK 35, then build the `app` module. The client requires an externally secured **HTTPS** endpoint. No production TLS reverse proxy, Android package, device installation or signing has been verified by this repository yet. The native Android client now lists recent recovery points, verifies archived files with explicit cost acknowledgement, and requests opt-in contained server-side restoration. It keeps credentials in volatile memory and requires trusted HTTPS without redirects; no Android device-file upload, background sync or remote provisioning is implemented. The client does not upload phone data. A debug APK and web preview bundle are available as short-lived artifacts from successful [Verify workflow](https://github.com/GoreeCloud/backup/actions/workflows/verify.yml) runs; these are testing builds, **not** signed production releases. Inspect the associated commit and workflow before installing a debug artifact.
+Import `android/` into Android Studio with JDK 17 and Android SDK 35, then build the `app` module. The client requires an externally secured **HTTPS** endpoint. No production TLS reverse proxy, Android package, device installation or signing has been verified by this repository yet. The native Android client now lists recent recovery points, verifies archived files with explicit cost acknowledgement, and requests opt-in contained server-side restoration. It keeps credentials in volatile memory and requires trusted HTTPS without redirects; one explicitly selected Android system-picker file can be uploaded only when the operator enables a private ingest directory (32 MiB maximum); automatic device-file scanning, background sync and remote provisioning remain unimplemented. The client never uploads phone data without a user-chosen file and explicit consent. A debug APK and web preview bundle are available as short-lived artifacts from successful [Verify workflow](https://github.com/GoreeCloud/backup/actions/workflows/verify.yml) runs; these are testing builds, **not** signed production releases. Inspect the associated commit and workflow before installing a debug artifact.
 
 ## Tests and security
 
@@ -125,3 +125,11 @@ See [Objectives](docs/OBJECTIVES.md), [Features](docs/FEATURES.md) and [Roadmap]
 ### Linux contained-restore sandbox
 
 The development API requires [Bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`) for the opt-in contained restore on Linux. The Kopia restore subprocess sees the host filesystem read-only, with only a new private restore workspace writable. Configure a private restore root separate from the source; do not run the API as root. Web and Android report restore disabled when the sandbox executable is unavailable. Remote repositories still require network access, and this isolation is not a substitute for recovery drills, independent permissions testing or untrusted multi-tenant workload separation.
+
+### Opt-in foreground Android file backup
+
+This **development preview** can back up one file deliberately chosen through Android’s system document picker. The Android client uses an authenticated, trusted-HTTPS `POST /api/v1/mobile/files` with an in-memory token and a bounded 32 MiB stream. No broad storage permissions, automatic file scanning, background sync or stored phone-file copies are used.
+
+The server operator must first create a **private directory with permissions 0700 inside the configured source root**, such as `/srv/backup-sources/mobile-ingest`, and set `GCB_MOBILE_INGEST_ROOT` to its canonical absolute path. The API stays disabled by default. Each upload is staged in a randomly named private subdirectory, encrypted into the already-connected Kopia repository, and removed from the server’s temporary plaintext staging area. The uploaded source file is not retained as an ordinary server file. The client cannot choose a server path, upload an empty file or bypass explicit consent. The API supports one file at a time; it reports successful command completion, **not** independent recovery certification. The original selected document remains on the phone. A configured HTTPS reverse proxy/tunnel is mandatory for remote Android access; the Go service never exposes plaintext bearer HTTP to the LAN.
+
+Upload credentials and phone contents must not be logged, copied into Git, or treated as test fixtures. A failed or interrupted upload may not produce a valid snapshot; verify and restore synthetic samples before relying on real data. No deployed backend or physical-device acceptance has been established by this change.

@@ -20,6 +20,8 @@ trap cleanup EXIT
 
 mkdir -p "$work/source/Documents" "$work/repository" "$work/cache" "$work/logs" "$work/recovery"
 chmod 700 "$work/recovery"
+mkdir -p "$work/source/mobile-ingest"
+chmod 700 "$work/source/mobile-ingest"
 # Prove mount isolation against a synthetic sentinel outside the writable
 # recovery workspace before invoking Kopia. No existing host files are touched.
 printf 'protected synthetic data
@@ -70,6 +72,7 @@ PY
 export GCB_LISTEN="127.0.0.1:$port"
 export GCB_SOURCE_ROOT="$work/source"
 export GCB_RESTORE_ROOT="$work/recovery"
+export GCB_MOBILE_INGEST_ROOT="$work/source/mobile-ingest"
 export GCB_API_TOKEN="$(openssl rand -hex 32)"
 export GCB_KOPIA_BIN="$(command -v kopia)"
 export GCB_RCLONE_BIN="$(command -v rclone || printf '/not/installed/rclone')"
@@ -143,3 +146,65 @@ assert verified.get('filesRead',0)>=1, verified
 assert verified.get('bytesRead',0)>=1, verified
 print('PASS: auth rejection, encrypted snapshot create, snapshot JSON and full file verification through HTTP API')
 PY
+
+# A user-chosen file is staged into a fresh private directory, snapshotted by
+# Kopia, then discarded as plaintext. This is synthetic data only.
+printf 'Android synthetic user-approved selected document\n' >"$work/selected-document.txt"
+unauthorized_mobile="$(curl -sS -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/octet-stream' \
+  -H 'X-GCB-Filename-B64: cGhvbmUudHh0' -H 'X-GCB-Confirm-Upload: true' \
+  --data-binary "@$work/selected-document.txt" "$base/api/v1/mobile/files")"
+test "$unauthorized_mobile" = 401 || { echo "mobile endpoint accepted unauthenticated bytes" >&2; exit 1; }
+curl -fsS --max-time 45 -X POST "${auth[@]}" -H 'Content-Type: application/octet-stream' \
+  -H 'X-GCB-Filename-B64: cGhvbmUudHh0' -H 'X-GCB-Confirm-Upload: true' \
+  --data-binary "@$work/selected-document.txt" "$base/api/v1/mobile/files" >"$work/mobile-result.json"
+python3 - "$work/mobile-result.json" "$work/source/mobile-ingest" <<'PYMOBILE'
+import pathlib,json,sys
+result=json.load(open(sys.argv[1],encoding='utf-8'))
+assert result.get('backedUp') is True and result.get('name')=='phone.txt',result
+assert result.get('bytes')>0,result
+stage=pathlib.Path(sys.argv[2])
+assert list(stage.iterdir())==[], 'Temporary plaintext staging directory was not cleaned'
+print('PASS: opt-in synthetic Android file upload produced encrypted Kopia backup and removed temporary plaintext staging')
+PYMOBILE
+# Verify the just-created selected-file snapshot is recoverable, not just
+# accepted by the upload endpoint.
+curl -fsS --max-time 30 "${auth[@]}" "$base/api/v1/snapshots" >"$work/mobile-snapshots.json"
+python3 - "$work/mobile-snapshots.json" "$work/mobile-restore-request.json" <<'PYMOBILERESTORE'
+import json,sys
+snapshots=json.load(open(sys.argv[1],encoding='utf-8'))
+matches=[row for row in snapshots if '/mobile-ingest/mobile-' in row.get('source',{}).get('path','')]
+assert len(matches)==1,(len(matches),[row.get('source',{}).get('path') for row in snapshots])
+json.dump({'snapshotId':matches[0]['id'],'acknowledge':True},open(sys.argv[2],'w',encoding='utf-8'))
+PYMOBILERESTORE
+curl -fsS --max-time 45 -X POST "${auth[@]}" -H 'Content-Type: application/json'   --data-binary "@$work/mobile-restore-request.json" "$base/api/v1/restore" >"$work/mobile-restored.json"
+python3 - "$work/mobile-restored.json" "$work/recovery" "$work/selected-document.txt" <<'PYMOBILECOMPARE'
+import json,sys,pathlib
+result=json.load(open(sys.argv[1],encoding='utf-8'))
+assert result.get('restored') is True,result
+rel=pathlib.PurePosixPath(result['relativePath'])
+assert not rel.is_absolute() and '..' not in rel.parts,result
+restored=pathlib.Path(sys.argv[2])/str(rel)/'phone.txt'
+assert restored.read_bytes()==pathlib.Path(sys.argv[3]).read_bytes(),restored
+print('PASS: selected Android file recovered byte-for-byte from its encrypted Kopia snapshot')
+PYMOBILECOMPARE
+# Independently restore the just-uploaded encrypted snapshot through the API.
+curl -fsS --max-time 30 "${auth[@]}" "$base/api/v1/snapshots" >"$work/after-mobile-snapshots.json"
+python3 - "$work/after-mobile-snapshots.json" "$work/mobile-restore-request.json" <<'PYMOBILEID'
+import json,sys
+snapshots=json.load(open(sys.argv[1],encoding='utf-8'))
+mobile=[row for row in snapshots if '/mobile-ingest/mobile-' in row.get('source',{}).get('path','')]
+assert len(mobile)==1, mobile
+json.dump({'snapshotId':mobile[0]['id'],'acknowledge':True},open(sys.argv[2],'w',encoding='utf-8'))
+PYMOBILEID
+curl -fsS --max-time 45 -X POST "${auth[@]}" -H 'Content-Type: application/json' \
+  --data-binary "@$work/mobile-restore-request.json" "$base/api/v1/restore" >"$work/mobile-restored.json"
+python3 - "$work/mobile-restored.json" "$work/recovery" "$work/selected-document.txt" <<'PYMOBILERESTORE'
+import json,pathlib,filecmp,sys
+result=json.load(open(sys.argv[1],encoding='utf-8'))
+assert result['restored'] is True,result
+relative=pathlib.PurePosixPath(result['relativePath'])
+assert not relative.is_absolute() and '..' not in relative.parts
+recovered=(pathlib.Path(sys.argv[2])/str(relative)/'phone.txt')
+assert recovered.is_file() and filecmp.cmp(recovered,sys.argv[3],shallow=False),recovered
+print('PASS: Android-selected synthetic file survived Kopia encryption, snapshot, and independent contained restore')
+PYMOBILERESTORE
