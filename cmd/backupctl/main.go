@@ -25,8 +25,12 @@ const defaultEndpoint = "http://127.0.0.1:8787"
 func main() { os.Exit(execute(os.Args[1:], os.Stdout, os.Stderr)) }
 
 func execute(args []string, stdout, stderr io.Writer) int {
+	if len(args) > 0 && args[0] == "verify" {
+		return executeVerify(args[1:], stdout, stderr)
+	}
 	if len(args) == 0 || args[0] != "snapshot" {
 		fmt.Fprintln(stderr, "Usage: backupctl snapshot --source=Documents [--timeout=30m]")
+		fmt.Fprintln(stderr, "       backupctl verify --accept-provider-costs [--timeout=30m]")
 		return 2
 	}
 	flags := flag.NewFlagSet("snapshot", flag.ContinueOnError)
@@ -135,11 +139,7 @@ func snapshot(ctx context.Context, endpoint, source, token string) error {
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
-	client := http.Client{
-		Transport:     &http.Transport{Proxy: nil, DisableKeepAlives: true, MaxResponseHeaderBytes: 16 << 10},
-		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-	}
-	resp, err := client.Do(req)
+	resp, err := newLocalClient().Do(req)
 	if err != nil {
 		return errors.New("local backup service unreachable or timed out")
 	}
@@ -147,12 +147,10 @@ func snapshot(ctx context.Context, endpoint, source, token string) error {
 	if resp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("server returned HTTP %d", resp.StatusCode)
 	}
-	limited := io.LimitReader(resp.Body, 4096)
 	var result struct {
 		Accepted bool `json:"accepted"`
 	}
-	dec := json.NewDecoder(limited)
-	if err := dec.Decode(&result); err != nil || !result.Accepted {
+	if err := decodeBoundedJSON(resp.Body, &result); err != nil || !result.Accepted {
 		return errors.New("unexpected backup API response")
 	}
 	return nil

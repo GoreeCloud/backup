@@ -15,6 +15,7 @@
 | Rclone backend as Kopia storage | Upstream CLI setup only | Experimental/not maintained upstream; not validated here |
 | Contained restore via API and web | Implemented, disabled unless `GCB_RESTORE_ROOT` is configured | An isolated synthetic HTTP restore passed including nested paths/symlinks/Unicode/large files; post-write unsafe-symlink/special-file audit and Linux Bubblewrap read-only-host confinement; production recovery acceptance is pending |
 | Advanced recovery browsing, pruning, retention UI | Planned | Requires safe restore-target handling and nonproduction drills |
+| Opt-in Linux full-content verification CLI and monthly timer template | Implemented; explicit provider-cost flag and operator installation required | Local synthetic API integration, Go race unit tests and systemd syntax check passed; no timer enabled |
 | Opt-in Linux systemd scheduled snapshots | Source templates and protected local CLI implemented | Explicit operator installation required; not active or deployed |
 | Cross-platform schedule UI, alerts and persistent job management | Planned | Needs durable scheduler, state tracking and secure notifications |
 | Android one-file foreground backup | Implemented as opt-in source staging + Kopia snapshot and system-picker client | Synthetic HTTP upload, SHA-256 receipt, encrypt and staging cleanup tested; physical-device/upload TLS acceptance pending |

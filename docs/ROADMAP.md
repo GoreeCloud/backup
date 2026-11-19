@@ -13,7 +13,7 @@
 - Expand the isolated backup and restore harness: encrypted-pack corruption and disposable missing/truncated-pack regression tests pass locally; lost-credential, real remote-storage interruption, resumable transport and production failure recovery remain open.
 - Robust job queue, cancellation, detailed progress and repository error mapping.
 - Extend Linux mount-isolated contained restore with pre-extraction content-tree checks, file-level browsing, metadata comparison, offline restore drills, checksums, safe cleanup and robust overwrite safeguards.
-- Build on the implemented opt-in Linux systemd timer templates with a configurable policy engine for cross-platform schedules, retention, exclude patterns and integrity verification.
+- Build on the implemented opt-in Linux snapshot and full-content integrity-check timer templates with a configurable policy engine for cross-platform schedules, retention, exclude patterns and offline recovery testing.
 
 ## Stage C — integrations and reliability
 
