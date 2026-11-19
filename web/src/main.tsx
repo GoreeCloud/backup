@@ -2,6 +2,7 @@ import React, { useCallback, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './gc-tokens.css'
 import './styles.css'
+import { summarizeSnapshots } from './recoveryPoints'
 
 type Status = { connected: boolean; message: string }
 type Remotes = { remotes: string[] }
@@ -232,10 +233,21 @@ function App() {
     } finally { setBusy(false) }
   }
 
-  const snapshotIds = snapshots.map(item => {
-    if (item && typeof item === 'object' && 'id' in item && typeof item.id === 'string') return item.id
-    return ''
-  }).filter(Boolean)
+  // One privacy-minimized projection drives the timeline and restore selector.
+  // Raw Kopia metadata can contain absolute paths, host/user IDs and tags;
+  // none of those fields belong in the visual recovery history.
+  const recoveryPoints = summarizeSnapshots(snapshots)
+  const snapshotIds = recoveryPoints.map(point => point.id)
+  const latestPoint = recoveryPoints.find(point => point.dateTime !== null)
+
+  const prepareRestore = (snapshotId: string) => {
+    if (!restoreEnabled || busy || !status?.connected) return
+    setRestoreId(snapshotId)
+    // Picking a recovery point never grants consent or invokes restoration.
+    setRestoreConsent(false)
+    document.getElementById('restoreSnapshot')?.focus()
+    document.getElementById('restore')?.scrollIntoView({ block: 'start' })
+  }
 
   return (
     <div className="layout">
@@ -243,18 +255,19 @@ function App() {
         <div className="brand"><span className="brandmark" aria-hidden="true">◈</span><div>GoreeCloud <strong>Backup</strong><small>Self-hosted workspace</small></div></div>
         <nav aria-label="Sections">
           <a href="#overview" className="nav-current">Overview</a>
-          <a href="#snapshots">Snapshots</a>
-          <a href="#verification">Verify integrity</a>
-          <a href="#restore">Restore workspace</a>
-          <a href="#file-backup">Select a file</a>
+          <a href="#snapshots">Recovery points</a>
+          <a href="#create">Back up now</a>
+          <a href="#restore">Restore files</a>
+          <a href="#file-backup">Back up one file</a>
+          <a href="#verification">Verify archived files</a>
           <a href="#destinations">Destinations</a>
         </nav>
         <p className="sidebar-note">Local-first · No telemetry<br />Development preview v0.1.0</p>
       </aside>
       <main className="main" id="overview">
-        <div className="eyebrow">PROTECT WHAT MATTERS</div>
+        <div className="eyebrow">YOUR BACKUP & RECOVERY WORKSPACE</div>
         <header className="topline">
-          <div><h1>Backup overview</h1><p className="subtle">Encrypted snapshots and storage connectivity in one workspace.</p></div>
+          <div><h1>Backup & recovery</h1><p className="subtle">Find recovery points, create encrypted backups, and prepare safe restores. A listed snapshot is not proof of integrity.</p></div>
           {token && <button className="secondary" onClick={() => refresh(token)} disabled={busy}>Refresh status</button>}
         </header>
         {!token ? (
@@ -273,13 +286,36 @@ function App() {
             {readOnly && <p className="hint" role="status">Read-only session: snapshot creation, restoration, uploads, archive verification and remote-provider capacity calls are unavailable.</p>}
             <div className="metrics">
               <section className="metric"><span>Repository</span><strong>{status ? (status.connected ? 'Connected' : 'Unconfigured') : 'Checking…'}</strong><small>Kopia engine</small></section>
-              <section className="metric"><span>Snapshots visible</span><strong>{snapshots.length}</strong><small>Current repository listing</small></section>
-              <section className="metric"><span>Rclone remotes</span><strong>{remotes.length}</strong><small>Configured destinations</small></section>
+              <section className="metric"><span>Recovery points</span><strong>{recoveryPoints.length}</strong><small>Visible, not independently verified</small></section>
+              <section className="metric"><span>Latest visible backup</span><strong>{latestPoint?.dateLabel ?? 'Unavailable'}</strong><small>{latestPoint ? latestPoint.timeLabel : 'No dated recovery point'}</small></section>
             </div>
-            <section className="panel" id="snapshots">
-              <div className="section-head"><div><div className="eyebrow">RECOVERY POINTS</div><h2>Snapshots</h2></div><span className="muted-label">View only</span></div>
-              {snapshots.length ? <ul className="snapshot-list">{snapshots.slice(0, 50).map((snapshot, index) => <li key={index}><span className="snapshot-icon" aria-hidden="true">▣</span><code>{JSON.stringify(snapshot).slice(0, 360)}</code></li>)}</ul>
-                : <div className="empty"><span aria-hidden="true">▤</span><strong>No snapshots displayed</strong><p>Connect a Kopia repository and create your first protected snapshot.</p></div>}
+            <section className="panel" id="snapshots" aria-labelledby="recovery-points-title">
+              <div className="section-head">
+                <div><div className="eyebrow">YOUR RECOVERY HISTORY</div><h2 id="recovery-points-title">Recovery points</h2></div>
+                <span className="muted-label">Metadata only · newest first</span>
+              </div>
+              <p className="subtle">Browse the 50 most recent visible states. Select one to prepare a contained restore. These are listed snapshots, not independently verified recoveries; full source paths, usernames and host details are hidden.</p>
+              {recoveryPoints.length ? <ol className="recovery-timeline" aria-label="Saved encrypted recovery points">
+                {recoveryPoints.map((point, index) => <li className="recovery-point" key={point.id}>
+                  <div className="recovery-point-main">
+                    <div className="recovery-point-heading">
+                      <strong className="recovery-point-label">{point.label}</strong>
+                      {index === 0 && point.dateTime && <span className="recovery-latest">Most recent</span>}
+                    </div>
+                    <div className="recovery-point-details">
+                      {point.dateTime ? <time dateTime={point.dateTime}>{point.dateLabel} · {point.timeLabel}</time>
+                        : <span>Date unavailable</span>}
+                      <span>Snapshot {point.id.slice(0, 12)}{point.id.length > 12 ? '…' : ''}</span>
+                    </div>
+                    <span className="recovery-point-caveat">Archived snapshot · restore not tested</span>
+                  </div>
+                  {restoreEnabled && !readOnly && <button type="button" className="secondary recovery-prepare"
+                    disabled={busy || !status?.connected} onClick={() => prepareRestore(point.id)}
+                    aria-label={'Prepare a contained restore for ' + point.label + ' from ' + point.dateLabel}>
+                    Prepare restore
+                  </button>}
+                </li>)}
+              </ol> : <div className="empty"><span aria-hidden="true">▤</span><strong>No recovery points displayed</strong><p>Connect a Kopia repository and create your first encrypted backup to begin a recovery history.</p></div>}
             </section>
             <section className="panel" id="restore">
               <div className="eyebrow">SAFE RECOVERY</div><h2>Contained restore workspace</h2>
@@ -289,7 +325,7 @@ function App() {
                   <label htmlFor="restoreSnapshot">Recovery point</label>
                   <select id="restoreSnapshot" value={restoreId} onChange={e => setRestoreId(e.target.value)} disabled={busy || snapshotIds.length === 0} required>
                     <option value="">Choose a snapshot</option>
-                    {snapshotIds.map(id => <option key={id} value={id}>{id}</option>)}
+                    {recoveryPoints.map(point => <option key={point.id} value={point.id}>{point.label} · {point.dateLabel} · {point.id.slice(0, 12)}</option>)}
                   </select>
                   <label className="verify-consent"><input type="checkbox" checked={restoreConsent} onChange={e => setRestoreConsent(e.target.checked)} disabled={busy} /> I understand this operation may download cloud backup data, use server disk space, and must be inspected before recovering original files.</label>
                   <button type="submit" disabled={busy || !restoreConsent || !restoreId || !status?.connected}>{busy ? 'Working…' : 'Restore to new private workspace'}</button>

@@ -65,3 +65,5 @@ A stage is not complete solely because its source files exist. No release date h
 - Extend the optional dual-runner Linux AMD64 hash comparison into signed, verifiable build attestations, repeat builds across independent runner providers, reproducibility tests for Android/web and additional OS/architecture targets, with complete dependency licensing and vulnerability triage before stable distribution.
 
 - Extend secure local credential handling beyond pinned per-invocation token reads: harden configuration parent ownership and unprivileged service UIDs, implement auditable token rotation/revocation and purpose-scoped native pairing through GoreeCloud Identity and GoreeShield with Wardveil protections.
+
+- Advance the backup-specific recovery timeline with accessible real-browser/mobile viewport acceptance, snapshot age/retention summaries grounded in server data, safe search/filter by anonymized label, and independent recovery success evidence. Never depict a listed backup as verified or recoverable without an actual restore drill.
