@@ -68,6 +68,8 @@ jobs:
         run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-rclone-mirror-isolated.sh
       - name: Isolated pinned SFTP transfer and independent Kopia recovery
         run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-rclone-sftp-isolated.sh
+      - name: Isolated authenticated loopback S3 encrypted mirror and Kopia recovery
+        run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-rclone-s3-isolated.sh
       - name: Isolated missing and truncated encrypted-pack recovery checks
         run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-incomplete-pack-isolated.sh
       - name: Isolated wrong-credential encrypted repository rejection and correct recovery
