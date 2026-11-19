@@ -71,3 +71,5 @@ A stage is not complete solely because its source files exist. No release date h
 - Expand browser-focused robustness coverage into real-browser integration, aborting expensive requests on navigation or disconnect, meaningful progress/cancellation for lengthy operations, server-side rate limiting and privacy-preserving structured error codes. Keep all current bearer tokens transient and never display untrusted raw error bodies.
 
 - Extend the read-only backup freshness gate with verified retention-window coverage, expected source-set checks, separately evidenced verification/restore results, trusted monitoring timestamps, and configured alert delivery. Avoid calling metadata age an integrity or recovery SLA.
+
+- Make recovery history across CLI/web/Android consistent on time zone, stable sorting and privacy requirements. Add signed or independently verified snapshot-creation evidence and successful restore-test metadata before offering trustworthy automated recovery-readiness badges.

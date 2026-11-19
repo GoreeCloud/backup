@@ -145,3 +145,7 @@ The web application routes GET status/info/snapshot-list/remotes and explicit PO
 ## Optional latest-snapshot freshness signal
 
 The existing authenticated loopback `backupctl doctor` command can receive `--max-age` as an optional duration (one minute to 365 days). It makes its existing three GET-only requests, derives a valid newest UTC timestamp from up to 100 visible snapshot metadata records regardless of listing order and compares against the operator's local clock. Missing/invalid dates, stale data and timestamps more than five minutes in the future fail the opted-in readiness gate. Without `--max-age`, availability behavior remains unchanged and no freshness claim is made. It does not run Kopia full-file verification, a restore or other mutations.
+
+## Bounded deterministic CLI recovery inventory
+
+The local Linux backupctl list source returns an already privacy-minimized projection of authenticated snapshot metadata, now sorted by actual parsed timestamps instead of response array order. Missing/invalid dates are placed last; deterministic ties preserve reverse input index behavior; duplicate IDs are collapsed to their newest dated occurrence. The output limit stays at 1..100, the HTTP body maximum at 2 MiB, and numeric-loopback/private-token read-only protections remain unchanged. Source labels retain safe Unicode leaf components while rejecting terminal bidirectional overrides and HTML-looking markup. No archive bytes are read by this listing.

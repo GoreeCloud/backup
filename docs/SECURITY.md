@@ -193,3 +193,7 @@ All same-origin authenticated web API calls now use an incremental, 2 MiB-cap JS
 ## Backup freshness is not recovery evidence
 
 An opt-in `backupctl doctor --max-age=48h` check fails if the newest **visible and parseable** snapshot metadata timestamp is stale, missing or implausibly future-dated, and still never issues a POST. The check uses the host clock and at most 100 listed records; an operator must handle clock skew, hidden/omitted snapshots and metadata falsification. An apparently recent timestamp does not prove that the file bytes, decryption key, source scope, remote replicas or recovery procedure are healthy. Use a separate full-content verify and independent restore drill before making production recovery claims.
+
+## CLI snapshot metadata chronology and terminal safety
+
+The local backupctl list tool no longer assumes that Kopia's JSON array is ordered by time. It accepts only valid bounded IDs, sorts the recovered metadata by parsed timestamp, deduplicates IDs and rejects bidi-control or markup-looking source leaf labels. Full paths, usernames, hosts, tags and object identifiers are never printed. This is a terminal presentation/integrity-of-metadata precaution; a compromised provider could still forge dates/labels. No full archive verification, decryption-key validation or independent restore is performed by list or by the timestamp-only doctor check.

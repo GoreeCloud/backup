@@ -78,3 +78,5 @@ Credential resilience test: a wrong passphrase on a clean copied encrypted repos
 **Bounded browser API responses:** Successful JSON responses now require the expected Content-Type and are limited to 2 MiB even for chunked responses; malformed UTF-8/JSON and unsafe primitives are rejected. Failed HTTP requests do not echo raw server errors or credentials into the interface. The selected-file confirmation flow uses the same parser.
 
 **Opt-in recovery-point age guard:** `backupctl doctor --max-age=48h` computes the newest dated snapshot across the visible metadata records and exits nonzero for stale, unknown or significantly future timestamps. It is read-only, compatible with a viewer token, and explicitly distinguishes snapshot freshness from tested recoverability.
+
+**Newest-first privacy-conscious Linux inventory:** `backupctl list` now orders snapshots by valid UTC timestamps, puts unknown dates last, deduplicates repeated IDs and rejects bidi/markup terminal labels. It uses existing bounded viewer-only metadata access without creating backups or claiming recovery proof.
