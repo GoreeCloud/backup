@@ -59,3 +59,6 @@ Credential resilience test: a wrong passphrase on a clean copied encrypted repos
 **Staging directory identity:** Temporary Android/browser upload file writes and cleanup are pinned to the server's original private staging directory handle, with new tests for symlink swaps, replaced private directories, and renamed directory handles. The downstream Kopia path lookup remains a separate operational trust boundary.
 
 **SFTP protocol interoperability regression:** Pinned Rclone serves and connects to a synthetic password-protected localhost SFTP endpoint with host-key pinning, negative wrong-host-key authentication test, encrypted repository upload/download and per-object SHA-256 comparison. After server shutdown, Kopia verifies all archived data and restores it byte-for-byte from the independently reconnected mirror. No real remote backend credentials or production data are exercised.
+
+
+**Synthetic Linux metadata acceptance:** Automated Kopia restore checks byte-for-byte contents, private permissions, mtime, Unicode paths and symlink target. A deliberately hardlinked source pair is restored with correct data but (in the tested build) separate inodes; the runner prints a limitation rather than claiming hardlink preservation.

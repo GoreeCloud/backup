@@ -108,3 +108,8 @@ Selected-file ingestion opens a Go `os.Root` for the canonical, empty, owner-onl
 ## Synthetic loopback SFTP compatibility lane
 
 A second independent manual CI lane serves an entirely disposable local directory using the included Rclone SFTP implementation on numeric loopback with password authentication and an ephemeral Ed25519 SSH host key. The Rclone client uses a separate empty configuration, an explicitly pinned known-hosts file, and a wrong-key negative test before encrypted Kopia objects are uploaded and downloaded. The downloaded bytes are verified using SHA-256 per encrypted repository object; Rclone's SFTP `check` alone is not relied on for cryptographic equality. After terminating the only SSH server, a fresh Kopia connection validates and restores the archive offline. This verifies one local SFTP transport path, not external network availability or a production-ready Rclone backend migration.
+
+
+## Metadata recovery contract
+
+The isolated Linux archive-restore lane verifies file contents, private file/directory permission bits, modification times and symlink targets. It also measures whether original shared-inode hardlinks remain shared after restoration, currently reporting a known local-build loss of hardlink identity without failing a byte-correct restore. The control service does not expose a hardlink repair operation, nor does it claim owner/group, ACL/xattr, sparse-block or special-device preservation. Detailed recovery acceptance for workloads relying on those features must be established before production reliance.
