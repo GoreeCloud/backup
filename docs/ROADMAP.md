@@ -2,7 +2,7 @@
 
 ## Stage A — foundation (current implementation work)
 
-- First-party Go orchestration API with basic authentication and path validation.
+- First-party Go orchestration API with basic authentication, path validation and serialized archive verification.
 - Kopia snapshot/status and Rclone remote-discovery adapters.
 - Import pinned upstream Kopia and Rclone sources with license notices and a verified local build script; complete transitive audits and release acceptance in later stages.
 - React web and Kotlin/Jetpack Compose Android read-only client.

@@ -5,9 +5,10 @@
 - Startup requires `GCB_API_TOKEN` with 32 or more bytes. Generate one from a cryptographically secure random source and provide it through a protected secret mechanism, never Git or HTTP URLs.
 - Default binding is `127.0.0.1:8787`. Android requires trusted HTTPS. Use a narrowly scoped TLS proxy, auth/rate-limit controls and/or a private VPN; no reverse proxy is bundled.
 - Token is held in in-memory React and Android state. Neither client persists it. Do not enter tokens into untrusted pages or transmit them across plaintext networks.
-- Go never invokes a shell; external commands are fixed-argument Kopia/Rclone commands with execution timeouts and bounded standard output. Do not put hostile wrappers in the executable search path.
+- Go never invokes a shell; external commands are fixed-argument Kopia/Rclone commands with execution timeouts and bounded standard output. The API bearer secret is removed from all child-process environments. Do not put hostile wrappers in the executable search path.
 - The API is single-admin and lacks per-user accounts, authorization roles, rate limits, full audit logs and key rotation workflow. Integration with GoreeCloud Identity and Wardveil remains planned.
 - The source-root containment check resolves symlinks but does not prevent concurrent filesystem mutation (TOCTOU). Keep the tree immutable to untrusted users for the duration of a backup.
+- Archive verification reads all snapshot files only on explicit request, is serialized with snapshot creation and may incur transfer costs. API success requires reported read counts to match expected counts with no reported errors.
 - Real restore integrity, retention deletion safety, disaster recovery and cloud backend compatibility are **unverified**. Test isolated backups and restores before trusting any repository.
 - The bundled upstream engine source is version-pinned; `scripts/build-upstreams.sh` checks its SHA256 file manifest, uses a checksum-verified public Go module proxy and does not run upstream installers. A complete transitive malware/license/SBOM audit is pending; do not treat hash checking alone as certification.
 - No telemetry or trackers are intentionally included. GoreeShield-specific consent/retention policies and Mesh data exchange require separate control verification.

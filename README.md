@@ -6,8 +6,8 @@ GoreeCloud Backup is a local-first, open-source backup control service with a **
 
 ## What exists
 
-- Go standard-library API: token-gated repository status, JSON snapshot listing, creating encrypted snapshots from subdirectories of an allowlisted root, and Rclone remote discovery.
-- React web workspace: in-memory token connection, repository status, snapshot list, snapshot creation and remote names, with visual tokens sourced from [GoreeCloud UI](https://github.com/GoreeCloud/gc-ui).
+- Go standard-library API: token-gated repository status, JSON snapshot listing, creating encrypted snapshots from subdirectories of an allowlisted root, full-file archive integrity verification, and Rclone remote discovery.
+- React web workspace: in-memory token connection, repository status, snapshot list, snapshot creation, cost-aware full-file verification and remote names, with visual tokens sourced from [GoreeCloud UI](https://github.com/GoreeCloud/gc-ui).
 - Native Android app: foreground-only authenticated HTTPS status, snapshot count, remote count; no stored credentials or automatic backup.
 - Automated Go tests, web build, Android build workflow, security/deployment guidance and roadmap.
 
@@ -66,9 +66,11 @@ curl -H "Authorization: Bearer $GCB_API_TOKEN" http://127.0.0.1:8787/api/v1/snap
 curl -H "Authorization: Bearer $GCB_API_TOKEN" http://127.0.0.1:8787/api/v1/remotes
 curl -X POST -H "Authorization: Bearer $GCB_API_TOKEN" -H "Content-Type: application/json" \
   -d '{"source":"Documents"}' http://127.0.0.1:8787/api/v1/snapshots
+# Explicit, potentially expensive full-content verification:
+curl -X POST -H "Authorization: Bearer $GCB_API_TOKEN" http://127.0.0.1:8787/api/v1/verify
 ```
 
-The example assumes an existing `Documents` directory *below* the source root, and an already-connected Kopia repository. Avoid backing up live databases without application-consistent snapshots.
+The example assumes an existing `Documents` directory *below* the source root, and an already-connected Kopia repository. A 100% verification may incur cloud egress fees; the web UI requires explicit acknowledgement. Verification does not replace a tested restore. Avoid backing up live databases without application-consistent snapshots.
 
 ## Android
 
@@ -77,7 +79,7 @@ Import `android/` into Android Studio with JDK 17 and Android SDK 35, then build
 ## Tests and security
 
 ```bash
-go test ./...
+go test -race ./...
 cd web && npm ci && npm run build
 # Android: cd android && ./gradlew :app:assembleDebug (SDK 35)
 ```
@@ -88,7 +90,7 @@ The API binds to **127.0.0.1** by default and refuses startup without a 32+ byte
 
 The first-party source is **Apache License 2.0**; see [LICENSE](LICENSE). The UI token stylesheet from GoreeCloud UI is MIT-licensed, with attribution in [THIRD_PARTY](docs/THIRD_PARTY.md). Pinned Kopia (Apache-2.0) and Rclone (MIT) source snapshots are bundled in `third_party/`, with original licenses preserved. Their upstream copyrights and identity remain separate from GoreeCloud. Maintain notices and verify licenses/versions when importing upstream source.
 
-The isolated synthetic Kopia encrypt/snapshot/restore verification script is `scripts/smoke-isolated.sh`; it creates and removes a temporary repository and does not read an existing user repository.
+The isolated synthetic Kopia encrypt/snapshot/verify/restore script is `scripts/smoke-isolated.sh`; the HTTP integration test is `scripts/smoke-api-isolated.sh`. Both create and remove temporary repositories and do not read existing user repositories. The latter tests token rejection, snapshot creation/listing and 100% content verification through the Go API.
 
 No analytics, advertising trackers or cloud accounts are configured by this project. GoreeShield covers privacy, Wardveil cybersecurity, GoreeCloud Mesh integration, GoreeCloud Identity access control, and GoreeCloud UI design; real cross-platform enforcement beyond the currently implemented local controls remains planned.
 

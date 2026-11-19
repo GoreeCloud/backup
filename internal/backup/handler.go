@@ -23,6 +23,8 @@ type Config struct {
 type Handler struct {
 	cfg  Config
 	root string
+	// Only one expensive repository-writing/verification operation per instance.
+	jobGate chan struct{}
 }
 
 func ConfigFromEnv() (Config, error) {
@@ -65,7 +67,7 @@ func NewHandler(cfg Config) (http.Handler, error) {
 	if err != nil || !info.IsDir() {
 		return nil, errors.New("source root must be an existing directory")
 	}
-	h := &Handler{cfg: cfg, root: root}
+	h := &Handler{cfg: cfg, root: root, jobGate: make(chan struct{}, 1)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -75,6 +77,7 @@ func NewHandler(cfg Config) (http.Handler, error) {
 	mux.HandleFunc("GET /api/v1/snapshots", h.authorize(h.snapshots))
 	mux.HandleFunc("GET /api/v1/remotes", h.authorize(h.remotes))
 	mux.HandleFunc("POST /api/v1/snapshots", h.authorize(h.create))
+	mux.HandleFunc("POST /api/v1/verify", h.authorize(h.verify))
 	mux.HandleFunc("GET /api/v1/info", h.authorize(h.info))
 	if cfg.WebDir != "" {
 		mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -121,10 +124,16 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 	respond(w, status, map[string]string{"error": msg})
 }
 func (h *Handler) info(w http.ResponseWriter, r *http.Request) {
-	respond(w, 200, map[string]any{"name": "GoreeCloud Backup", "version": "0.1.0-dev", "features": []string{"kopia-status", "snapshot-list", "snapshot-create", "rclone-remotes"}, "sourceRoot": h.root})
+	respond(w, 200, map[string]any{"name": "GoreeCloud Backup", "version": "0.1.0-dev", "features": []string{"kopia-status", "snapshot-list", "snapshot-create", "rclone-remotes", "full-file-verify"}, "sourceRoot": h.root})
 }
 func run(ctx context.Context, exe string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, exe, args...)
+	// Never leak the API bearer secret to separately executed upstream programs.
+	for _, entry := range os.Environ() {
+		if !strings.HasPrefix(entry, "GCB_API_TOKEN=") {
+			cmd.Env = append(cmd.Env, entry)
+		}
+	}
 	// Bounded output and no shell interpolation. Never echo command environment.
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -221,6 +230,57 @@ func (h *Handler) safeSource(input string) (string, error) {
 	}
 	return real, nil
 }
+func (h *Handler) beginJob(w http.ResponseWriter) bool {
+	select {
+	case h.jobGate <- struct{}{}:
+		return true
+	default:
+		writeErr(w, http.StatusConflict, "a repository operation is already in progress")
+		return false
+	}
+}
+
+// verify performs a complete upstream encrypted-content read/verification. It
+// deliberately has no user-supplied command arguments and cannot modify data.
+// This is an expensive, explicit administrator action; it is not a restore drill.
+func (h *Handler) verify(w http.ResponseWriter, r *http.Request) {
+	if !h.beginJob(w) {
+		return
+	}
+	defer func() { <-h.jobGate }()
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
+	defer cancel()
+	output, err := run(ctx, h.cfg.KopiaBin, "snapshot", "verify", "--verify-files-percent=100", "--json")
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, "Kopia full-content verification failed or timed out; inspect local service logs")
+		return
+	}
+	var result struct {
+		Stats *struct {
+			ProcessedObjectCount     int64 `json:"processedObjectCount"`
+			ExpectedTotalObjectCount int64 `json:"expectedTotalObjectCount"`
+			ReadFileCount            int64 `json:"readFileCount"`
+			ExpectedTotalFileCount   int64 `json:"expectedTotalFileCount"`
+			ReadBytes                int64 `json:"readBytes"`
+		} `json:"stats"`
+		ErrorCount *int64 `json:"errorCount"`
+	}
+	if err := json.Unmarshal(output, &result); err != nil || result.Stats == nil || result.ErrorCount == nil {
+		writeErr(w, http.StatusBadGateway, "unexpected Kopia verification response")
+		return
+	}
+	stats := result.Stats
+	if *result.ErrorCount != 0 || stats.ReadFileCount < stats.ExpectedTotalFileCount || stats.ProcessedObjectCount < stats.ExpectedTotalObjectCount {
+		writeErr(w, http.StatusBadGateway, "incomplete or failed Kopia file verification; investigate repository integrity")
+		return
+	}
+	respond(w, http.StatusOK, map[string]any{
+		"verified": true, "filesRead": stats.ReadFileCount, "bytesRead": stats.ReadBytes,
+		"scope": "100% of files in the currently available snapshots",
+		"note":  "An independent restore test is still required",
+	})
+}
+
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 4096)
 	defer r.Body.Close()
@@ -243,6 +303,10 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 400, err.Error())
 		return
 	}
+	if !h.beginJob(w) {
+		return
+	}
+	defer func() { <-h.jobGate }()
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
 	defer cancel()
 	_, err = run(ctx, h.cfg.KopiaBin, "snapshot", "create", source)
