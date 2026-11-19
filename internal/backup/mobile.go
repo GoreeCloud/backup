@@ -136,11 +136,18 @@ func (h *Handler) mobileFile(w http.ResponseWriter, r *http.Request) {
 	syncErr := file.Sync()
 	closeErr := file.Close()
 	if copyErr != nil {
-		if bytesCopied >= maxMobileFileBytes {
+		var sizeErr *http.MaxBytesError
+		if errors.As(copyErr, &sizeErr) {
 			writeErr(w, http.StatusRequestEntityTooLarge, "selected file exceeds the 32 MiB limit")
 		} else {
 			writeErr(w, http.StatusBadRequest, "unable to receive selected file")
 		}
+		return
+	}
+	// Do not snapshot a truncated body even if a proxy or test transport
+	// incorrectly returned EOF without signaling a framing error.
+	if r.ContentLength >= 0 && bytesCopied != r.ContentLength {
+		writeErr(w, http.StatusBadRequest, "selected file length does not match request framing")
 		return
 	}
 	if syncErr != nil || closeErr != nil {

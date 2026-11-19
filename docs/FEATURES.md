@@ -38,3 +38,6 @@ Credential resilience test: a wrong passphrase on a clean copied encrypted repos
 
 
 **Access scope:** Optional read-only `GCB_VIEW_TOKEN` for status, snapshot metadata, configured Rclone remote names and redacted capability details. Administrative token remains required for writes, restores, uploads, full-file verification and remote capacity inspection. This is only a coarse shared-token preview, not GoreeCloud Identity or production RBAC.
+
+
+**Upload failure regression:** The selected-file endpoint is tested against premature EOF, mismatched declared length, stream sizes above 32 MiB without a Content-Length and zero-byte content. Handled errors must reject the snapshot before Kopia is invoked and leave no plaintext staging residue; crash-recovery and resumable transfer are not implemented.
