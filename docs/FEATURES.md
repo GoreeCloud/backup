@@ -4,6 +4,7 @@
 | --- | --- | --- |
 | Kopia repository status | Implemented in Go API | Requires an installed, connected Kopia CLI; no real repository accepted |
 | Encrypted snapshot creation | Implemented via Kopia CLI | Only under configured existing source root; synthetic restore passed, real recovery pending |
+| Corrupted encrypted-pack detection | Synthetic isolated test and manual CI workflow implemented | Single-byte encrypted pack tampering caught; no cloud/large-scale disaster certification |
 | Full 100% archived-file verification | Implemented as authenticated, serialized, user-confirmed API action | Synthetic CLI and HTTP API tests pass; independent restore remains necessary |
 | Snapshot listing | Implemented via Kopia JSON CLI | Payload compatibility and pagination need integration tests |
 | Pinned Kopia and Rclone upstream source | Included under `third_party/`; file hashes checked | Full transitive license/dependency audit and release packaging pending |
