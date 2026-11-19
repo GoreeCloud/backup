@@ -22,32 +22,34 @@ jobs:
             third_party/rclone/go.sum
       - name: Verify pinned imported engine source
         run: sha256sum -c --status third_party/sources.sha256
-      - name: Install disposable recovery sandbox
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap
+      - name: Install Bubblewrap and Ubuntu's scoped AppArmor profile
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap apparmor-profiles apparmor-utils
+          # Ubuntu 24.04 restricts unprivileged user namespaces. Load only
+          # the distribution-shipped bwrap profile on this disposable runner;
+          # never disable AppArmor protection globally.
+          test -s /usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+          sudo apparmor_parser -r /usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+      - name: Verify actual sandbox execution and write isolation
+        run: |
+          set -euo pipefail
+          workspace="$(mktemp -d)"
+          trap 'rm -rf -- "$workspace"' EXIT
+          mkdir "$workspace/inside"
+          printf 'unchanged\n' > "$workspace/outside"
+          bwrap --die-with-parent --new-session --unshare-user --unshare-pid \
+            --ro-bind / / --proc /proc --dev /dev \
+            --bind "$workspace/inside" "$workspace/inside" \
+            -- /bin/sh -c 'printf executed > "$1"; if printf tampered > "$2"; then exit 83; fi' \
+            _ "$workspace/inside/marker" "$workspace/outside"
+          grep -qx executed "$workspace/inside/marker"
+          grep -qx unchanged "$workspace/outside"
       - name: Compile the included Kopia and Rclone sources
         run: ./scripts/build-upstreams.sh
       - name: Isolated encrypted archive, deduplication and restore
         run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-isolated.sh
       - name: Isolated encrypted pack corruption detection
         run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-corruption-isolated.sh
-      # Ubuntu 24.04 GitHub-hosted runners may use AppArmor to deny
-      # unprivileged user-namespace UID maps. Change this only on the disposable
-      # test VM and only for the duration of the synthetic restore drill.
-      - name: Permit unprivileged user namespace for isolated restore test
-        run: |
-          if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
-            sysctl -n kernel.apparmor_restrict_unprivileged_userns > "$RUNNER_TEMP/gcb-original-userns-policy"
-            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          fi
       - name: Isolated authenticated HTTP, CLI and contained restore
         run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-api-isolated.sh
-      - name: Restore GitHub runner user namespace policy
-        if: always()
-        run: |
-          if [ -f "$RUNNER_TEMP/gcb-original-userns-policy" ]; then
-            original="$(cat "$RUNNER_TEMP/gcb-original-userns-policy")"
-            case "$original" in
-              0|1) sudo sysctl -w "kernel.apparmor_restrict_unprivileged_userns=$original" ;;
-              *) echo 'Unable to restore unexpected user namespace policy value' >&2; exit 1 ;;
-            esac
-          fi
