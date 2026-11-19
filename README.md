@@ -6,7 +6,7 @@ GoreeCloud Backup is a local-first, open-source backup control service with a **
 
 ## What exists
 
-- Go standard-library API: token-gated repository status, JSON snapshot listing, creating encrypted snapshots from subdirectories of an allowlisted root, full-file archive integrity verification, and Rclone remote discovery.
+- Go standard-library API: token-gated repository status, JSON snapshot listing, creating encrypted snapshots from subdirectories of an allowlisted root, full-file archive integrity verification, and Rclone remote discovery and opt-in capacity reporting on supported remotes.
 - React web workspace: in-memory token connection, repository status, snapshot list, snapshot creation, cost-aware full-file verification and remote names, with visual tokens sourced from [GoreeCloud UI](https://github.com/GoreeCloud/gc-ui).
 - Native Android app: foreground-only authenticated HTTPS status, snapshot count, remote count; no stored credentials or automatic backup.
 - Automated Go tests, web build, Android build workflow, security/deployment guidance and roadmap.
@@ -67,6 +67,9 @@ Example authenticated API calls:
 curl -H "Authorization: Bearer $GCB_API_TOKEN" http://127.0.0.1:8787/api/v1/status
 curl -H "Authorization: Bearer $GCB_API_TOKEN" http://127.0.0.1:8787/api/v1/snapshots
 curl -H "Authorization: Bearer $GCB_API_TOKEN" http://127.0.0.1:8787/api/v1/remotes
+# Optional read-only provider quota query; may contact a configured cloud remote:
+# curl --get -H "Authorization: Bearer $GCB_API_TOKEN" \
+#   --data-urlencode 'remote=remote-name:' http://127.0.0.1:8787/api/v1/remotes/about
 curl -X POST -H "Authorization: Bearer $GCB_API_TOKEN" -H "Content-Type: application/json" \
   -d '{"source":"Documents"}' http://127.0.0.1:8787/api/v1/snapshots
 # Explicit, potentially expensive full-content verification:

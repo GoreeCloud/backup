@@ -26,6 +26,7 @@ type Handler struct {
 	root string
 	// Only one expensive repository-writing/verification operation per instance.
 	jobGate     chan struct{}
+	remoteGate  chan struct{}
 	restoreRoot string
 	webDir      string
 }
@@ -90,7 +91,7 @@ func NewHandler(cfg Config) (http.Handler, error) {
 			return nil, errors.New("web root must contain an internal index.html")
 		}
 	}
-	h := &Handler{cfg: cfg, root: root, restoreRoot: restoreRoot, webDir: webDir, jobGate: make(chan struct{}, 1)}
+	h := &Handler{cfg: cfg, root: root, restoreRoot: restoreRoot, webDir: webDir, jobGate: make(chan struct{}, 1), remoteGate: make(chan struct{}, 1)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -99,6 +100,7 @@ func NewHandler(cfg Config) (http.Handler, error) {
 	mux.HandleFunc("GET /api/v1/status", h.authorize(h.status))
 	mux.HandleFunc("GET /api/v1/snapshots", h.authorize(h.snapshots))
 	mux.HandleFunc("GET /api/v1/remotes", h.authorize(h.remotes))
+	mux.HandleFunc("GET /api/v1/remotes/about", h.authorize(h.remoteCapacity))
 	mux.HandleFunc("POST /api/v1/snapshots", h.authorize(h.create))
 	mux.HandleFunc("POST /api/v1/verify", h.authorize(h.verify))
 	mux.HandleFunc("POST /api/v1/restore", h.authorize(h.restore))
@@ -159,7 +161,7 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 	respond(w, status, map[string]string{"error": msg})
 }
 func (h *Handler) info(w http.ResponseWriter, r *http.Request) {
-	respond(w, 200, map[string]any{"name": "GoreeCloud Backup", "version": "0.1.0-dev", "features": []string{"kopia-status", "snapshot-list", "snapshot-create", "rclone-remotes", "full-file-verify", "contained-restore"}, "sourceRoot": h.root, "restoreEnabled": h.restoreRoot != ""})
+	respond(w, 200, map[string]any{"name": "GoreeCloud Backup", "version": "0.1.0-dev", "features": []string{"kopia-status", "snapshot-list", "snapshot-create", "rclone-remotes", "rclone-remote-capacity", "full-file-verify", "contained-restore"}, "sourceRoot": h.root, "restoreEnabled": h.restoreRoot != ""})
 }
 func run(ctx context.Context, exe string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, exe, args...)

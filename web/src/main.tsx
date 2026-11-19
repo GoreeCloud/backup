@@ -5,6 +5,16 @@ import './styles.css'
 
 type Status = { connected: boolean; message: string }
 type Remotes = { remotes: string[] }
+type Capacity = { remote: string; quota: Partial<Record<'total'|'used'|'free'|'trashed'|'other'|'objects', number>>; note: string }
+const formatCapacity = (amount: number, isObjects: boolean) => {
+  if (!Number.isFinite(amount) || amount < 0) return 'Unavailable'
+  if (isObjects) return Math.round(amount).toLocaleString()
+  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB']
+  let size = amount
+  let index = 0
+  while (size >= 1024 && index < units.length - 1) { size /= 1024; index++ }
+  return `${size.toFixed(index ? 1 : 0)} ${units[index]}`
+}
 type BackupInfo = { restoreEnabled: boolean }
 type RestoreResult = { restored: boolean; snapshotId: string; relativePath: string; note: string }
 type Verification = { verified: boolean; filesRead: number; bytesRead: number; note: string }
@@ -27,6 +37,9 @@ function App() {
   const [status, setStatus] = useState<Status | null>(null)
   const [snapshots, setSnapshots] = useState<unknown[]>([])
   const [remotes, setRemotes] = useState<string[]>([])
+  const [capacity, setCapacity] = useState<Capacity | null>(null)
+  const [capacityError, setCapacityError] = useState('')
+  const [capacityBusy, setCapacityBusy] = useState(false)
   const [source, setSource] = useState('')
   const [restoreEnabled, setRestoreEnabled] = useState(false)
   const [restoreId, setRestoreId] = useState('')
@@ -51,6 +64,8 @@ function App() {
       ])
       setSnapshots(shots.status === 'fulfilled' && Array.isArray(shots.value) ? shots.value : [])
       setRemotes(destinations.status === 'fulfilled' ? destinations.value.remotes : [])
+      setCapacity(null)
+      setCapacityError('')
       setRestoreEnabled(info.status === 'fulfilled' && Boolean(info.value.restoreEnabled))
       if (shots.status === 'rejected') setLastAction('Snapshot list unavailable; check Kopia connection')
     } catch (cause) {
@@ -118,6 +133,19 @@ function App() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Restore failed')
     } finally { setBusy(false) }
+  }
+
+  const inspectRemote = async (remote: string) => {
+    if (!token || capacityBusy || busy) return
+    setCapacityBusy(true)
+    setCapacity(null)
+    setCapacityError('')
+    try {
+      const result = await api<Capacity>(`/api/v1/remotes/about?remote=${encodeURIComponent(remote)}`, token)
+      setCapacity(result)
+    } catch (cause) {
+      setCapacityError(cause instanceof Error ? cause.message : 'Provider capacity is unavailable')
+    } finally { setCapacityBusy(false) }
   }
 
   const snapshotIds = snapshots.map(item => {
@@ -199,8 +227,11 @@ function App() {
             </section>
             <section className="panel" id="destinations">
               <div className="eyebrow">STORAGE CONNECTIONS</div><h2>Rclone remotes</h2>
-              {remotes.length ? <div className="chip-list">{remotes.map(name => <span className="chip" key={name}>{name}</span>)}</div> : <p className="subtle">No Rclone remotes are available. Configure destinations on the server.</p>}
-              <p className="hint">Always use Kopia encryption before storing backups remotely. Remote configuration and synchronization are not yet managed from this interface.</p>
+              {remotes.length ? <div className="remote-list">{remotes.map(name => <div className="remote-line" key={name}><span className="chip">{name}</span><button type="button" className="secondary" disabled={busy || capacityBusy} onClick={() => inspectRemote(name)}>Check capacity</button></div>)}</div> : <p className="subtle">No Rclone remotes are available. Configure destinations on the server.</p>}
+              {capacityBusy && <p role="status" className="hint">Contacting the selected remote provider…</p>}
+              {capacityError && <p role="alert" className="error">{capacityError}</p>}
+              {capacity && <div className="remote-capacity" role="status"><strong>Provider-reported capacity for {capacity.remote}</strong><dl>{Object.entries(capacity.quota).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{formatCapacity(value as number, key === 'objects')}</dd></div>)}</dl><p className="hint">{capacity.note}</p></div>}
+              <p className="hint">Capacity checks are opt-in and may contact a remote provider. Some Rclone backends do not report quota. Always encrypt using Kopia before storing backups remotely; destination setup and transfers are not managed from this interface.</p>
             </section>
           </>
         )}

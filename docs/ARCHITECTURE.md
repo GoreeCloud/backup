@@ -48,3 +48,7 @@ Bearer token and JSON Content-Type headers are deliberately single-valued; ambig
 ## Android recovery companion
 
 The Kotlin/Jetpack Compose client uses authenticated, system-trusted HTTPS with redirects disabled, strict endpoint validation and a 1 MiB bounded JSON response reader. It reads repository state and up to 100 snapshot summaries and optionally requests full-file integrity verification or a contained server-side restore after explicit user acknowledgement. Rclone discovery failures do not block snapshot browsing. It does not access or upload Android device files, retain tokens, add storage permissions, or enable background jobs. Android UI controls do not replace backend authorization.
+
+## On-demand Rclone provider quota
+
+The API requires an authenticated, single-valued configured Rclone remote name ending in `:`, first verifies that name against the local `listremotes` output, and only then runs `rclone about --json` with fixed arguments. It accepts known nonnegative byte/object-count fields only, bounds runtime/output, and serializes remote inspections per API instance to avoid concurrent provider calls. The browser never polls quotas automatically; unsupported providers return an error instead of fabricated capacity. Storage-provider queries may make network requests or incur charges. No Rclone sync, deletion, file enumeration or remoting configuration operation is exposed by this endpoint.

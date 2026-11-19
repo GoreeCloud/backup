@@ -7,6 +7,7 @@
 | Full 100% archived-file verification | Implemented as authenticated, serialized, user-confirmed API action | Synthetic CLI and HTTP API tests pass; independent restore remains necessary |
 | Snapshot listing | Implemented via Kopia JSON CLI | Payload compatibility and pagination need integration tests |
 | Pinned Kopia and Rclone upstream source | Included under `third_party/`; file hashes checked | Full transitive license/dependency audit and release packaging pending |
+| Opt-in Rclone remote capacity reporting | Implemented for supported, already configured remotes; explicit browser action | Isolated stub/authorization tests pass; live provider compatibility unverified |
 | Rclone remote discovery | Implemented in Go API | Names only; no upload/sync operation |
 | Web app | React/TypeScript source | Browser and accessibility acceptance not yet complete |
 | Android app | Kotlin/Jetpack Compose recovery companion source | HTTPS snapshot browser, consent-based integrity verification and contained restore requests; CI debug APK available for testing; physical-device and signed-release acceptance pending |

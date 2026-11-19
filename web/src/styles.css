@@ -3,3 +3,5 @@
 .verify-consent{display:flex;align-items:flex-start;gap:12px;font-weight:500;max-width:65ch;color:var(--gc-text);margin-top:16px;cursor:pointer}.verify-consent input{min-height:0;margin:3px 0 0;flex-shrink:0;width:18px;height:18px;accent-color:var(--gc-brand)}.verification-action{margin-top:18px}
 
 .restore-form{display:grid;gap:14px;max-width:680px}.restore-form select{min-height:48px;padding:12px;border:1px solid var(--gc-outline-soft);border-radius:var(--gc-radius-sm);background:var(--gc-canvas);color:var(--gc-text)}.restore-form>button{justify-self:start}
+
+.remote-list{display:grid;gap:12px}.remote-line{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.remote-line button{min-height:38px;padding:8px 14px}.remote-capacity{border:1px solid var(--gc-outline-soft);border-radius:var(--gc-radius-sm);margin-top:16px;padding:16px}.remote-capacity dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}.remote-capacity dt{text-transform:capitalize;color:var(--gc-text-soft);font-size:13px}.remote-capacity dd{margin:4px 0 0;font-weight:700}
