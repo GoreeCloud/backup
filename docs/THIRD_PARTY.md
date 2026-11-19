@@ -1,11 +1,11 @@
 # Third-party provenance and license notices
 
-## Runtime integrations (not vendored)
+## Included upstream source and runtime integrations
 
-- **Kopia** — https://github.com/kopia/kopia — Apache License 2.0. Supplies encryption, snapshotting, deduplication and repository engines when separately installed. Copyright belongs to upstream contributors. Source is not copied into this first revision.
-- **Rclone** — https://github.com/rclone/rclone — MIT license (see upstream COPYING). Supplies optional cloud remote configuration and names when separately installed; Kopia's upstream Rclone provider is experimental/not maintained.
+- **Kopia** — https://github.com/kopia/kopia — Apache License 2.0. Supplies encryption, snapshotting, deduplication and repository engines when separately installed. Copyright belongs to upstream contributors. Pinned source is included in `third_party/kopia/` (tag v0.23.1, commit 72ec08fd8edb86c67ed27099bf1b955e1f308ffa), with original license.
+- **Rclone** — https://github.com/rclone/rclone — MIT license (see upstream COPYING). Supplies optional cloud remote configuration and names when separately installed; Kopia's upstream Rclone provider is experimental/not maintained. Pinned source is included in `third_party/rclone/` (tag v1.75.2, commit be8d6044eacb843b74d335db0c5fbe09222031fe), with its original COPYING and bundled notices.
 
-No exact Kopia/Rclone binaries, release hashes or package versions are bundled or certified; operators must verify their own. These remain external processes, not rebranded source.
+Pinned tag commits and source file checksums are recorded in `third_party/UPSTREAMS.md` and `third_party/sources.sha256`. No compiled binaries are committed or certified. Operators can build both with `scripts/build-upstreams.sh` and choose the outputs explicitly; they remain separate executable processes, not rebranded GoreeCloud source. The import is not a full transitive license/SBOM/advisory audit.
 
 ## Bundled first-party ecosystem code
 

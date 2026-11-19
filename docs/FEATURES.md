@@ -5,6 +5,7 @@
 | Kopia repository status | Implemented in Go API | Requires an installed, connected Kopia CLI; no real repository accepted |
 | Encrypted snapshot creation | Implemented via Kopia CLI | Only under configured existing source root; real restore verification pending |
 | Snapshot listing | Implemented via Kopia JSON CLI | Payload compatibility and pagination need integration tests |
+| Pinned Kopia and Rclone upstream source | Included under `third_party/`; file hashes checked | Full transitive license/dependency audit and release packaging pending |
 | Rclone remote discovery | Implemented in Go API | Names only; no upload/sync operation |
 | Web app | React/TypeScript source | Browser and accessibility acceptance not yet complete |
 | Android app | Kotlin/Jetpack Compose read-only source | Signed APK and physical device acceptance pending |
