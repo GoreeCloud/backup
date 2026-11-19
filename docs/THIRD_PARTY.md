@@ -30,3 +30,6 @@ The manual Recovery Integration GitHub Actions workflow runs `scripts/go_module_
 
 
 **Native theme reuse:** The Android color scheme is generated from this repository's existing attributed `web/src/gc-tokens.css` source copy of the MIT-licensed GoreeCloud UI token definitions. `scripts/generate_android_theme.py` is a first-party deterministic conversion script; its generated `GoreeCloudUiTheme.kt` contains no third-party executable code or new design specifications. If the upstream CSS is updated after verification, regenerate and test both the web and Android apps, preserving attribution.
+
+
+**Upstream credential-shaped fixtures:** The current imported Rclone source includes 26 previously observed AWS-key-shaped references in documentation, generated manuals and examples. Their literal values are never reproduced in this project's scanner output or source-review reports. `security/credential-literal-baseline.json` stores opaque path-scoped SHA-256 fingerprints and counts solely to make new additions fail standard CI; this is not a provider validity check or permission to trust the original fixtures. The older imported Kopia S3 test fixture triggered historical GitHub alert #1; its current-source patch does not alter Git history.
