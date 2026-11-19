@@ -54,3 +54,7 @@ The native recovery companion rejects URL paths, userinfo, query strings, fragme
 ## Rclone provider-capacity boundary
 
 The optional quota endpoint uses fixed Rclone CLI arguments and accepts only a remote name matching an existing configured remote. It rejects flags, destination paths and duplicate remote query parameters; it never accepts raw Rclone commands or transfers backup content. It caps execution time and JSON output and allows only one remote inspection per process. A capacity check may contact an external cloud provider, expose account quota to an authenticated user, and incur provider costs; it is never performed automatically by the web UI. Unsupported or failing backends must not be treated as zero available capacity.
+
+## Encrypted-pack corruption regression
+
+`smoke-corruption-isolated.sh` creates a newly provisioned local Kopia repository under `mktemp`, snapshots deterministic synthetic bytes, validates the healthy repository, then flips one byte within its largest non-configuration encrypted pack. It switches to a fresh cache before verifying that tampering is detected. The test is included only in the **manually dispatched** recovery workflow to avoid unexpected CI costs. No real repositories or upstream credential material are accessed or modified. Passing this test does not prove recoverability after malicious modification of every object, deletion, interrupted writes or remote-provider corruption.
