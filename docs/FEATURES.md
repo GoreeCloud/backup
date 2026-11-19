@@ -35,3 +35,6 @@ Synthetic resilience coverage: source-built Kopia encrypted-pack tampering, miss
 Credential resilience test: a wrong passphrase on a clean copied encrypted repository must be rejected without hanging, and a fresh correct passphrase must still unlock and verify the archive. This is not lost-key recovery.
 
 **Private ingestion boundary:** New Android and browser selected-file backup setups must keep temporary plaintext under a dedicated, empty private staging root outside normal backup source and restore trees. Startup rejects crash leftovers for operator review instead of automatically erasing them. Existing in-source preview configurations require manual migration before the endpoint can be enabled.
+
+
+**Access scope:** Optional read-only `GCB_VIEW_TOKEN` for status, snapshot metadata, configured Rclone remote names and redacted capability details. Administrative token remains required for writes, restores, uploads, full-file verification and remote capacity inspection. This is only a coarse shared-token preview, not GoreeCloud Identity or production RBAC.

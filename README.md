@@ -6,7 +6,7 @@ GoreeCloud Backup is a local-first, open-source backup control service with a **
 
 ## What exists
 
-- Go standard-library API: token-gated repository status, JSON snapshot listing, creating encrypted snapshots from subdirectories of an allowlisted root, full-file archive integrity verification, and Rclone remote discovery and opt-in capacity reporting on supported remotes.
+- Go standard-library API: admin-token control and optional scoped read-only token for repository status, JSON snapshot listing, creating encrypted snapshots from subdirectories of an allowlisted root, full-file archive integrity verification, and Rclone remote discovery and opt-in capacity reporting on supported remotes.
 - React web workspace: in-memory token connection, repository status, snapshot list, snapshot creation, cost-aware full-file verification and remote names, with visual tokens sourced from [GoreeCloud UI](https://github.com/GoreeCloud/gc-ui).
 - Native Android app: foreground-only authenticated HTTPS status, snapshot browsing and explicitly selected one-file Kopia backup with an opt-in private server inbox; no stored credentials or background backup.
 - Automated Go tests, web build, Android build workflow, security/deployment guidance and roadmap.
@@ -31,11 +31,10 @@ From the repository root, after installing a supported Go toolchain, run `./scri
 | `third_party/kopia/`, `third_party/rclone/` | Pinned upstream engine sources, licensing and modules |
 | `scripts/build-upstreams.sh` | Checked source builds |
 | `cmd/backupctl/` and `packaging/systemd/` | Protected local snapshot client and opt-in Linux schedule templates |
-| `cmd/backupctl/` and `packaging/systemd/` | Protected local snapshot client and opt-in Linux schedule templates |
 
 ## Prerequisites
 
-Go 1.24+, Node.js 22+, npm, and **separately installed Kopia and Rclone binaries** (either separately installed and verified or built from the included source with `scripts/build-upstreams.sh`). Pinned upstream sources are included in `third_party/`; standalone binaries are still optional runtime prerequisites until built with the included script and selected by explicit environment settings.
+Go 1.26+, Node.js 22+, npm, and **separately installed Kopia and Rclone binaries** (either separately installed and verified or built from the included source with `scripts/build-upstreams.sh`). Pinned upstream sources are included in `third_party/`; standalone binaries are still optional runtime prerequisites until built with the included script and selected by explicit environment settings.
 
 Set up the Kopia repository **as the same unprivileged OS user** that will run the service. For a local repository, see `kopia repository create filesystem --path=<outside-source-root>`. For a supported native cloud provider, use Kopia's native repository backend. Kopia's Rclone storage backend may be used manually, e.g. `kopia repository create rclone --rclone-exe=/path/to/rclone --remote-path=name:path`, but upstream labels that backend *experimental/not maintained*; use only after independent compatibility and restoration tests.
 
@@ -163,3 +162,10 @@ The first-party Linux `backupctl` now supports `verify --accept-provider-costs` 
 ### Security change: isolate temporary upload plaintext
 
 `GCB_MOBILE_INGEST_ROOT` now **must be a separate, non-overlapping directory outside `GCB_SOURCE_ROOT` and `GCB_RESTORE_ROOT`**. This prevents broad source-root snapshots from unintentionally capturing temporary selected-file plaintext. The service rejects symlink aliases and non-private ingest paths and refuses to start if it finds leftover files or directories in the ingest root; it **never silently deletes crash leftovers at startup**. On an existing development installation, stop the service, inspect any previous staging files privately, and configure a newly created, empty 0700 directory outside the backup and recovery trees. Do not move abandoned plaintext into the ordinary backup source; review and dispose of it under the operator's data-retention policy. A separate directory does not by itself encrypt temporary plaintext at rest; hardened filesystem permissions, encrypted storage, independent recovery drills and a least-privileged service account are still required.
+
+
+### Optional read-only API token
+
+For a status-only session, configure `GCB_VIEW_TOKEN` as a separate cryptographically random bearer secret of **at least 32 bytes**. It must differ from `GCB_API_TOKEN`; a missing viewer token keeps the original admin-only behavior. A viewer may request authenticated repository status, snapshot metadata, configured remote names and a redacted feature summary. It **cannot** create snapshots, upload files, restore, run archive verification or query provider capacity (which can contact third-party services or incur charges). The web and native Android clients display a read-only session and disable cost-bearing or write controls based on server-returned permissions, while the API independently enforces every boundary.
+
+Both tokens remain long-lived shared secrets held only in client process memory; a viewer token is **not** an account identity, session, a rate limit, multiuser RBAC or a replacement for GoreeCloud Identity. Do not share tokens in Git, logs or client URLs. Scope the transport using trusted HTTPS/VPN for remote clients; server HTTP still binds only to numeric loopback. Both `GCB_API_TOKEN` and `GCB_VIEW_TOKEN` are explicitly removed from the environment of spawned Kopia/Rclone processes.

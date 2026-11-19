@@ -19,7 +19,7 @@ import (
 )
 
 type Config struct {
-	Listen, Token, SourceRoot, RestoreRoot, MobileIngestRoot, KopiaBin, RcloneBin, WebDir string
+	Listen, Token, ViewToken, SourceRoot, RestoreRoot, MobileIngestRoot, KopiaBin, RcloneBin, WebDir string
 }
 type Handler struct {
 	cfg  Config
@@ -36,6 +36,7 @@ func ConfigFromEnv() (Config, error) {
 	cfg := Config{
 		Listen:           value("GCB_LISTEN", "127.0.0.1:8787"),
 		Token:            os.Getenv("GCB_API_TOKEN"),
+		ViewToken:        os.Getenv("GCB_VIEW_TOKEN"),
 		SourceRoot:       os.Getenv("GCB_SOURCE_ROOT"),
 		RestoreRoot:      os.Getenv("GCB_RESTORE_ROOT"),
 		MobileIngestRoot: os.Getenv("GCB_MOBILE_INGEST_ROOT"),
@@ -46,6 +47,9 @@ func ConfigFromEnv() (Config, error) {
 	if len(cfg.Token) < 32 {
 		return Config{}, errors.New("GCB_API_TOKEN must be at least 32 bytes; no default credentials")
 	}
+	if err := validateViewToken(cfg); err != nil {
+		return Config{}, err
+	}
 	if cfg.SourceRoot == "" {
 		return Config{}, errors.New("GCB_SOURCE_ROOT is required")
 	}
@@ -54,6 +58,18 @@ func ConfigFromEnv() (Config, error) {
 	}
 	// Deliberately bind to loopback; expose through a separately secured TLS proxy/VPN only.
 	return cfg, nil
+}
+func validateViewToken(cfg Config) error {
+	if cfg.ViewToken == "" {
+		return nil
+	}
+	if len(cfg.ViewToken) < 32 {
+		return errors.New("GCB_VIEW_TOKEN must be at least 32 bytes when configured")
+	}
+	if cfg.ViewToken == cfg.Token {
+		return errors.New("GCB_VIEW_TOKEN must not equal GCB_API_TOKEN")
+	}
+	return nil
 }
 func value(key, fallback string) string {
 	v := os.Getenv(key)
@@ -70,6 +86,9 @@ func NewHandler(cfg Config) (http.Handler, error) {
 	}
 	if len(cfg.Token) < 32 {
 		return nil, errors.New("token must be at least 32 bytes")
+	}
+	if err := validateViewToken(cfg); err != nil {
+		return nil, err
 	}
 	if cfg.SourceRoot == "" {
 		return nil, errors.New("missing source root")
@@ -115,15 +134,15 @@ func NewHandler(cfg Config) (http.Handler, error) {
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = io.WriteString(w, "ok\n")
 	})
-	mux.HandleFunc("GET /api/v1/status", h.authorize(h.status))
-	mux.HandleFunc("GET /api/v1/snapshots", h.authorize(h.snapshots))
-	mux.HandleFunc("GET /api/v1/remotes", h.authorize(h.remotes))
+	mux.HandleFunc("GET /api/v1/status", h.authorizeRead(h.status))
+	mux.HandleFunc("GET /api/v1/snapshots", h.authorizeRead(h.snapshots))
+	mux.HandleFunc("GET /api/v1/remotes", h.authorizeRead(h.remotes))
 	mux.HandleFunc("GET /api/v1/remotes/about", h.authorize(h.remoteCapacity))
 	mux.HandleFunc("POST /api/v1/snapshots", h.authorize(h.create))
 	mux.HandleFunc("POST /api/v1/mobile/files", h.authorize(h.mobileFile))
 	mux.HandleFunc("POST /api/v1/verify", h.authorize(h.verify))
 	mux.HandleFunc("POST /api/v1/restore", h.authorize(h.restore))
-	mux.HandleFunc("GET /api/v1/info", h.authorize(h.info))
+	mux.HandleFunc("GET /api/v1/info", h.authorizeRead(h.info))
 	if h.webDir != "" {
 		mux.Handle("/", http.HandlerFunc(h.serveWeb))
 	}
@@ -136,10 +155,21 @@ func NewHandler(cfg Config) (http.Handler, error) {
 		mux.ServeHTTP(w, r)
 	}), nil
 }
+
+type authRoleKey struct{}
+
+func safeTokenMatch(presented, configured string) bool {
+	return len(configured) > 0 && len(presented) == len(configured) &&
+		subtle.ConstantTimeCompare([]byte(presented), []byte(configured)) == 1
+}
 func (h *Handler) authorize(next http.HandlerFunc) http.HandlerFunc {
+	return h.authorizeScope(next, false)
+}
+func (h *Handler) authorizeRead(next http.HandlerFunc) http.HandlerFunc {
+	return h.authorizeScope(next, true)
+}
+func (h *Handler) authorizeScope(next http.HandlerFunc, allowViewer bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Refuse ambiguous duplicate Authorization headers, even when a proxy
-		// could interpret or concatenate them differently than net/http.
 		values := r.Header.Values("Authorization")
 		const prefix = "Bearer "
 		if len(values) != 1 || !strings.HasPrefix(values[0], prefix) {
@@ -148,12 +178,14 @@ func (h *Handler) authorize(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		presented := strings.TrimPrefix(values[0], prefix)
-		if len(presented) != len(h.cfg.Token) || subtle.ConstantTimeCompare([]byte(presented), []byte(h.cfg.Token)) != 1 {
+		admin := safeTokenMatch(presented, h.cfg.Token)
+		viewer := allowViewer && safeTokenMatch(presented, h.cfg.ViewToken)
+		if !admin && !viewer {
 			w.Header().Set("WWW-Authenticate", "Bearer")
 			writeErr(w, http.StatusUnauthorized, "authorization required")
 			return
 		}
-		next(w, r)
+		next(w, r.WithContext(context.WithValue(r.Context(), authRoleKey{}, viewer && !admin)))
 	}
 }
 
@@ -180,13 +212,33 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 	respond(w, status, map[string]string{"error": msg})
 }
 func (h *Handler) info(w http.ResponseWriter, r *http.Request) {
-	respond(w, 200, map[string]any{"name": "GoreeCloud Backup", "version": "0.1.0-dev", "features": []string{"kopia-status", "snapshot-list", "snapshot-create", "rclone-remotes", "rclone-remote-capacity", "full-file-verify", "contained-restore"}, "sourceRoot": h.root, "restoreEnabled": h.restoreRoot != "" && restoreSandboxAvailable(), "mobileUploadEnabled": h.mobileRoot != ""})
+	viewer, rOK := r.Context().Value(authRoleKey{}).(bool)
+	if !rOK {
+		viewer = false
+	}
+	features := []string{"kopia-status", "snapshot-list", "rclone-remotes"}
+	result := map[string]any{
+		"name":                "GoreeCloud Backup",
+		"version":             "0.1.0-dev",
+		"readOnly":            viewer,
+		"canVerify":           !viewer,
+		"canSnapshot":         !viewer,
+		"canInspectRemote":    !viewer,
+		"restoreEnabled":      !viewer && h.restoreRoot != "" && restoreSandboxAvailable(),
+		"mobileUploadEnabled": !viewer && h.mobileRoot != "",
+	}
+	if !viewer {
+		result["sourceRoot"] = h.root
+		features = append(features, "snapshot-create", "rclone-remote-capacity", "full-file-verify", "contained-restore")
+	}
+	result["features"] = features
+	respond(w, http.StatusOK, result)
 }
 func run(ctx context.Context, exe string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, exe, args...)
 	// Never leak the API bearer secret to separately executed upstream programs.
 	for _, entry := range os.Environ() {
-		if !strings.HasPrefix(entry, "GCB_API_TOKEN=") {
+		if !strings.HasPrefix(entry, "GCB_API_TOKEN=") && !strings.HasPrefix(entry, "GCB_VIEW_TOKEN=") {
 			cmd.Env = append(cmd.Env, entry)
 		}
 	}

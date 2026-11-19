@@ -253,6 +253,12 @@ private fun BackupScreen() {
 
         val data = overview
         if (data != null) {
+            if (data.readOnly) {
+                Text(
+                    "Read-only session. You can inspect repository status and snapshots but cannot start backups, restores or bandwidth-consuming verification.",
+                    color = Soft, fontSize = 13.sp
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 Box(modifier = Modifier.weight(1f)) {
                     MetricCard("Repository", if (data.repositoryConnected) "Online" else "Not connected")
@@ -270,6 +276,7 @@ private fun BackupScreen() {
                     Text("Back up a selected Android file", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                     Text(
                         if (data.mobileUploadEnabled) "Choose one document with Android's system picker. It is streamed over trusted HTTPS, snapshotted by Kopia and removed from temporary server staging. Maximum 32 MiB per selection."
+                        else if (data.readOnly) "This access token cannot upload files."
                         else "Selected-device-file backup is disabled until the server operator configures a private GCB_MOBILE_INGEST_ROOT.",
                         color = Soft, fontSize = 13.sp
                     )
@@ -332,10 +339,10 @@ private fun BackupScreen() {
                     Text("Reads 100% of stored backup file contents. Cloud storage may charge bandwidth fees; this does not replace a restore drill.", fontSize = 13.sp, color = Soft)
                     ConsentRow(
                         "I understand this may read cloud data and incur costs.",
-                        verifyConsent, !busy, { verifyConsent = it }
+                        verifyConsent, !busy && !data.readOnly, { verifyConsent = it }
                     )
                     Button(
-                        enabled = !busy && data.repositoryConnected && verifyConsent,
+                        enabled = !busy && data.repositoryConnected && verifyConsent && !data.readOnly,
                         onClick = { executeOperation("/api/v1/verify", null, "Archive verification") }
                     ) { Text("Verify all snapshot files") }
                 }
@@ -346,6 +353,7 @@ private fun BackupScreen() {
                     Text("Contained restore", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                     Text(
                         if (data.restoreEnabled) "Restores the selected snapshot into a new private server workspace. Original files are not overwritten."
+                        else if (data.readOnly) "This access token cannot restore files."
                         else "Server-side restoration is disabled until the operator configures GCB_RESTORE_ROOT.",
                         fontSize = 13.sp, color = Soft
                     )

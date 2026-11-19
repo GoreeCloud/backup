@@ -94,6 +94,7 @@ internal data class Overview(
     val remotesCount: Int?,
     val restoreEnabled: Boolean,
     val mobileUploadEnabled: Boolean,
+    val readOnly: Boolean,
     val notes: List<String>
 )
 
@@ -133,6 +134,7 @@ internal fun fetchOverview(server: URL, token: String): Overview {
     return Overview(status.optBoolean("connected", false), snapshots, remotes,
         info?.optBoolean("restoreEnabled", false) ?: false,
         info?.optBoolean("mobileUploadEnabled", false) ?: false,
+        info?.optBoolean("readOnly", true) ?: true,
         notes)
 }
 
