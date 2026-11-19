@@ -97,3 +97,7 @@ The browser refuses to connect the bearer token on a non-loopback plaintext orig
 
 
 The browser computes SHA-256 of the user-selected file in the secure browser context and checks it against the server's received-bytes receipt before reporting success. This detects accidental upload corruption or mismatched responses but is **not proof of future repository recoverability** or end-to-end encryption.
+
+## Continuous enforcement of immutable workflow actions
+
+The first resolved Go module inventory workflow added an `actions/upload-artifact@v4` reference after initial immutable-action pinning. The artifact uploader is now pinned to its verified official v4 commit, and a first-party static check in the required `docs` CI job rejects mutable or abbreviated third-party action references in all GitHub workflow YAML files. This guard runs without installing actions or dependencies, and its unit tests reject floating tags/branches and truncated SHAs. A passing checker is not a substitute for examining new upstream action source and permissions before adoption.
