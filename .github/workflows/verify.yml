@@ -34,6 +34,13 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci --ignore-scripts
       - run: npm run build
+      - name: Publish web development build (7-day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: goreecloud-backup-web-development
+          path: web/dist/
+          if-no-files-found: error
+          retention-days: 7
   android:
     name: android
     runs-on: ubuntu-24.04
@@ -64,6 +71,13 @@ jobs:
             curl -sSIL --max-time 15 --retry 2 -o /dev/null -w '%{http_code}\n' "$url" || true
           done
       - run: ./gradlew --no-daemon :app:assembleDebug
+      - name: Publish Android debug APK (not production signed) (7-day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: goreecloud-backup-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
   docs:
     name: docs
     runs-on: ubuntu-24.04
