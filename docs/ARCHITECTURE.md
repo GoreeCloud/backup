@@ -40,3 +40,7 @@ The service stores no database; Kopia's own repository and config own durable st
 ## Opt-in Linux scheduling control
 
 `cmd/backupctl` is a small, first-party loopback HTTP client for invoking the existing authenticated snapshot endpoint from systemd oneshot services. The optional `packaging/systemd/` timer uses systemd credentials to expose a private token *file path*, not an API token in the command or unit environment. The service continues to serialize its own operations. There is no automatically installed timer, extra open port, remote API client, separate data store or unattended action until an operator explicitly provisions and enables it.
+
+## HTTP boundary hardening
+
+Bearer token and JSON Content-Type headers are deliberately single-valued; ambiguous multiple values are rejected. The bundled web renderer serves only regular files contained inside its canonical web root, rejecting symlinks to external files and avoiding directory listings. Contained restores perform a post-write symlink/special-file audit and fail closed when unsafe files are discovered; this is not a filesystem sandbox or a claim of pre-write containment. See `docs/SECURITY.md` for the residual risk.

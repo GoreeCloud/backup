@@ -50,6 +50,7 @@ func TestVerifyAuthorizationAndConcurrency(t *testing.T) {
 	}
 
 	r = httptest.NewRequest("POST", "/api/v1/snapshots", strings.NewReader(`{"source":"safe"}`))
+	r.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
 	handler.create(w, r)
 	if w.Code != http.StatusConflict {

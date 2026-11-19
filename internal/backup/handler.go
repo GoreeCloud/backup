@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"os/exec"
@@ -26,6 +27,7 @@ type Handler struct {
 	// Only one expensive repository-writing/verification operation per instance.
 	jobGate     chan struct{}
 	restoreRoot string
+	webDir      string
 }
 
 func ConfigFromEnv() (Config, error) {
@@ -73,7 +75,22 @@ func NewHandler(cfg Config) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	h := &Handler{cfg: cfg, root: root, restoreRoot: restoreRoot, jobGate: make(chan struct{}, 1)}
+	webDir := ""
+	if cfg.WebDir != "" {
+		webDir, err = filepath.EvalSymlinks(cfg.WebDir)
+		if err != nil {
+			return nil, fmt.Errorf("web root: %w", err)
+		}
+		webStat, statErr := os.Stat(webDir)
+		if statErr != nil || !webStat.IsDir() {
+			return nil, errors.New("web root must be an existing directory")
+		}
+		indexPath, indexErr := filepath.EvalSymlinks(filepath.Join(webDir, "index.html"))
+		if indexErr != nil || !pathInside(webDir, indexPath) {
+			return nil, errors.New("web root must contain an internal index.html")
+		}
+	}
+	h := &Handler{cfg: cfg, root: root, restoreRoot: restoreRoot, webDir: webDir, jobGate: make(chan struct{}, 1)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -86,19 +103,8 @@ func NewHandler(cfg Config) (http.Handler, error) {
 	mux.HandleFunc("POST /api/v1/verify", h.authorize(h.verify))
 	mux.HandleFunc("POST /api/v1/restore", h.authorize(h.restore))
 	mux.HandleFunc("GET /api/v1/info", h.authorize(h.info))
-	if cfg.WebDir != "" {
-		mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != "GET" && r.Method != "HEAD" {
-				http.Error(w, "method not allowed", 405)
-				return
-			}
-			path := filepath.Join(cfg.WebDir, strings.TrimPrefix(filepath.Clean("/"+r.URL.Path), "/"))
-			if _, err := os.Stat(path); err == nil {
-				http.ServeFile(w, r, path)
-				return
-			}
-			http.ServeFile(w, r, filepath.Join(cfg.WebDir, "index.html"))
-		}))
+	if h.webDir != "" {
+		mux.Handle("/", http.HandlerFunc(h.serveWeb))
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -111,17 +117,39 @@ func NewHandler(cfg Config) (http.Handler, error) {
 }
 func (h *Handler) authorize(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Refuse ambiguous duplicate Authorization headers, even when a proxy
+		// could interpret or concatenate them differently than net/http.
+		values := r.Header.Values("Authorization")
 		const prefix = "Bearer "
-		auth := r.Header.Get("Authorization")
-		ok := strings.HasPrefix(auth, prefix) && len(auth)-len(prefix) == len(h.cfg.Token) && subtle.ConstantTimeCompare([]byte(strings.TrimPrefix(auth, prefix)), []byte(h.cfg.Token)) == 1
-		if !ok {
+		if len(values) != 1 || !strings.HasPrefix(values[0], prefix) {
 			w.Header().Set("WWW-Authenticate", "Bearer")
-			writeErr(w, 401, "authorization required")
+			writeErr(w, http.StatusUnauthorized, "authorization required")
+			return
+		}
+		presented := strings.TrimPrefix(values[0], prefix)
+		if len(presented) != len(h.cfg.Token) || subtle.ConstantTimeCompare([]byte(presented), []byte(h.cfg.Token)) != 1 {
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			writeErr(w, http.StatusUnauthorized, "authorization required")
 			return
 		}
 		next(w, r)
 	}
 }
+
+func requireJSON(w http.ResponseWriter, r *http.Request) bool {
+	values := r.Header.Values("Content-Type")
+	if len(values) != 1 {
+		writeErr(w, http.StatusUnsupportedMediaType, "exactly one application/json Content-Type header is required")
+		return false
+	}
+	media, _, err := mime.ParseMediaType(values[0])
+	if err != nil || media != "application/json" {
+		writeErr(w, http.StatusUnsupportedMediaType, "application/json Content-Type required")
+		return false
+	}
+	return true
+}
+
 func respond(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
@@ -293,6 +321,9 @@ func (h *Handler) verify(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
+	if !requireJSON(w, r) {
+		return
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, 4096)
 	defer r.Body.Close()
 	var payload struct {
