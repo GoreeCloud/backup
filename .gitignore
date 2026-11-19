@@ -13,3 +13,6 @@ android/**/build/
 .DS_Store
 
 web/*.tsbuildinfo
+
+# Locally compiled optional upstream engines
+build/

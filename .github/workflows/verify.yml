@@ -57,11 +57,12 @@ jobs:
         run: |
           for url in \
             'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/2.0.21/kotlin-reflect-2.0.21.pom' \
-            'https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-reflect/2.0.21/kotlin-reflect-2.0.21.pom'; do
+            'https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-reflect/2.0.21/kotlin-reflect-2.0.21.pom' \
+            'https://maven-central.storage-download.googleapis.com/maven2/org/jetbrains/kotlin/kotlin-reflect/2.0.21/kotlin-reflect-2.0.21.pom'; do
             printf '%s: ' "$url"
             curl -sSIL --max-time 15 --retry 2 -o /dev/null -w '%{http_code}\n' "$url" || true
           done
-      - run: ./gradlew --no-daemon --refresh-dependencies :app:assembleDebug
+      - run: ./gradlew --no-daemon :app:assembleDebug
   docs:
     name: docs
     runs-on: ubuntu-24.04
@@ -71,3 +72,15 @@ jobs:
           test -s LICENSE
           test -s README.md
           for doc in docs/ROADMAP.md docs/FEATURES.md docs/OBJECTIVES.md docs/THIRD_PARTY.md docs/SECURITY.md; do test -s "$doc"; done
+
+  upstream-sources:
+    name: upstream-sources
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          test -s third_party/kopia/LICENSE
+          test -s third_party/rclone/COPYING
+          test -s third_party/kopia/go.sum
+          test -s third_party/rclone/go.sum
+          sha256sum -c --status third_party/sources.sha256

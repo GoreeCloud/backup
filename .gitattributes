@@ -2,3 +2,7 @@
 *.bat text eol=crlf
 *.sh text eol=lf
 android/gradlew text eol=lf
+
+# Preserve exact upstream source bytes and their pinned hash manifest.
+third_party/kopia/** -text
+third_party/rclone/** -text

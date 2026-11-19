@@ -4,6 +4,7 @@
 
 - First-party Go orchestration API with basic authentication and path validation.
 - Kopia snapshot/status and Rclone remote-discovery adapters.
+- Import pinned upstream Kopia and Rclone sources with license notices and a verified local build script; complete transitive audits and release acceptance in later stages.
 - React web and Kotlin/Jetpack Compose Android read-only client.
 - Baseline CI, legal attribution, security documentation and branch safeguards.
 

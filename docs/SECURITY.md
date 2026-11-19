@@ -9,6 +9,7 @@
 - The API is single-admin and lacks per-user accounts, authorization roles, rate limits, full audit logs and key rotation workflow. Integration with GoreeCloud Identity and Wardveil remains planned.
 - The source-root containment check resolves symlinks but does not prevent concurrent filesystem mutation (TOCTOU). Keep the tree immutable to untrusted users for the duration of a backup.
 - Real restore integrity, retention deletion safety, disaster recovery and cloud backend compatibility are **unverified**. Test isolated backups and restores before trusting any repository.
+- The bundled upstream engine source is version-pinned; `scripts/build-upstreams.sh` checks its SHA256 file manifest, uses a checksum-verified public Go module proxy and does not run upstream installers. A complete transitive malware/license/SBOM audit is pending; do not treat hash checking alone as certification.
 - No telemetry or trackers are intentionally included. GoreeShield-specific consent/retention policies and Mesh data exchange require separate control verification.
 
 For private vulnerability reports, use GitHub's private vulnerability reporting if it is enabled on this repository; otherwise contact the maintainer through a secure established channel. Do not publish exploit details, access tokens or private storage contents in issues.

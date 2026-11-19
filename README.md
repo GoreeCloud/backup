@@ -13,6 +13,12 @@ GoreeCloud Backup is a local-first, open-source backup control service with a **
 
 **Not implemented:** backup schedules, restore UX/validation, repository setup from the UI, Rclone file-sync operations, Android device backup, secure multi-user roles, GoreeCloud Identity/Mesh live integration, signed Android releases, and production operations. No server is deployed by this source.
 
+## Included upstream source and engine builds
+
+Pinned upstream source for **Kopia v0.23.1** and **Rclone v1.75.2** is now maintained under `third_party/kopia/` and `third_party/rclone/`, with their original license files, module pins and copyright notices retained. See [upstream provenance](third_party/UPSTREAMS.md). These are unmodified upstream snapshots, not independently authored GoreeCloud code.
+
+From the repository root, after installing a supported Go toolchain, run `./scripts/build-upstreams.sh` to build both from pinned source into ignored `build/bin/`. The script verifies imported file hashes before compiling and never invokes upstream installers. Select those binaries with `GCB_KOPIA_BIN=$PWD/build/bin/kopia` and `GCB_RCLONE_BIN=$PWD/build/bin/rclone`; the default still uses separately installed executables on `PATH`. Module dependencies are resolved from audited public Go proxy/checksum infrastructure at build time; full transitive vendor/SBOM review is pending.
+
 ## Source structure
 
 | Path | Purpose |
@@ -22,10 +28,12 @@ GoreeCloud Backup is a local-first, open-source backup control service with a **
 | `android/` | Kotlin/Jetpack Compose native Android client |
 | `docs/` | Architecture, operational safety, features, objectives and roadmap |
 | `.github/workflows/` | CI verification |
+| `third_party/kopia/`, `third_party/rclone/` | Pinned upstream engine sources, licensing and modules |
+| `scripts/build-upstreams.sh` | Checked source builds |
 
 ## Prerequisites
 
-Go 1.24+, Node.js 22+, npm, and **separately installed Kopia and Rclone binaries** (their version, provenance and installation are the operator's responsibility at this preview stage). The binaries' original upstream source is **not yet vendored in this repository**; the code in this repository is a first-party orchestration layer, not a redistributed fork of either upstream tool.
+Go 1.24+, Node.js 22+, npm, and **separately installed Kopia and Rclone binaries** (either separately installed and verified or built from the included source with `scripts/build-upstreams.sh`). Pinned upstream sources are included in `third_party/`; standalone binaries are still optional runtime prerequisites until built with the included script and selected by explicit environment settings.
 
 Set up the Kopia repository **as the same unprivileged OS user** that will run the service. For a local repository, see `kopia repository create filesystem --path=<outside-source-root>`. For a supported native cloud provider, use Kopia's native repository backend. Kopia's Rclone storage backend may be used manually, e.g. `kopia repository create rclone --rclone-exe=/path/to/rclone --remote-path=name:path`, but upstream labels that backend *experimental/not maintained*; use only after independent compatibility and restoration tests.
 
@@ -78,7 +86,7 @@ The API binds to **127.0.0.1** by default and refuses startup without a 32+ byte
 
 ## Open source and attribution
 
-The first-party source is **Apache License 2.0**; see [LICENSE](LICENSE). The UI token stylesheet from GoreeCloud UI is MIT-licensed, with attribution in [THIRD_PARTY](docs/THIRD_PARTY.md). Kopia (Apache-2.0) and Rclone (MIT) are separate optional runtime tools: their upstream code is not represented as owned or bundled by GoreeCloud. Maintain notices and verify licenses/versions when importing upstream source.
+The first-party source is **Apache License 2.0**; see [LICENSE](LICENSE). The UI token stylesheet from GoreeCloud UI is MIT-licensed, with attribution in [THIRD_PARTY](docs/THIRD_PARTY.md). Pinned Kopia (Apache-2.0) and Rclone (MIT) source snapshots are bundled in `third_party/`, with original licenses preserved. Their upstream copyrights and identity remain separate from GoreeCloud. Maintain notices and verify licenses/versions when importing upstream source.
 
 The isolated synthetic Kopia encrypt/snapshot/restore verification script is `scripts/smoke-isolated.sh`; it creates and removes a temporary repository and does not read an existing user repository.
 
