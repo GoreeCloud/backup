@@ -52,3 +52,7 @@ The Kotlin/Jetpack Compose client uses authenticated, system-trusted HTTPS with 
 ## On-demand Rclone provider quota
 
 The API requires an authenticated, single-valued configured Rclone remote name ending in `:`, first verifies that name against the local `listremotes` output, and only then runs `rclone about --json` with fixed arguments. It accepts known nonnegative byte/object-count fields only, bounds runtime/output, and serializes remote inspections per API instance to avoid concurrent provider calls. The browser never polls quotas automatically; unsupported providers return an error instead of fabricated capacity. Storage-provider queries may make network requests or incur charges. No Rclone sync, deletion, file enumeration or remoting configuration operation is exposed by this endpoint.
+
+## Local bind enforcement
+
+The API validates `GCB_LISTEN` as a numeric 127.0.0.1 or IPv6 `::1` address with an explicit nonzero port and refuses wildcard/listen-on-all-interface configurations. External HTTPS ingress is independently provisioned and out of this repository's deployment scope.

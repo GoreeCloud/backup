@@ -47,7 +47,10 @@ func ConfigFromEnv() (Config, error) {
 	if cfg.SourceRoot == "" {
 		return Config{}, errors.New("GCB_SOURCE_ROOT is required")
 	}
-	// Deliberately default to loopback; expose through a separately secured TLS proxy/VPN only.
+	if err := validateLocalListen(cfg.Listen); err != nil {
+		return Config{}, err
+	}
+	// Deliberately bind to loopback; expose through a separately secured TLS proxy/VPN only.
 	return cfg, nil
 }
 func value(key, fallback string) string {
@@ -58,6 +61,11 @@ func value(key, fallback string) string {
 	return v
 }
 func NewHandler(cfg Config) (http.Handler, error) {
+	if cfg.Listen != "" {
+		if err := validateLocalListen(cfg.Listen); err != nil {
+			return nil, err
+		}
+	}
 	if len(cfg.Token) < 32 {
 		return nil, errors.New("token must be at least 32 bytes")
 	}
