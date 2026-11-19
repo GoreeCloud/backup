@@ -25,12 +25,18 @@ chmod 700 "$work/recovery"
 printf 'protected synthetic data
 ' >"$work/outside-sentinel"
 mkdir -p "$work/recovery/sandbox-probe"
-if bwrap --die-with-parent --unshare-user --unshare-pid --ro-bind / / \
+# A failed bwrap invocation must NOT count as a successful sandbox: first
+# prove that an inside command actually ran and wrote inside the assigned
+# workspace, then prove that a host path remained unmodified.
+if ! bwrap --die-with-parent --new-session --unshare-user --unshare-pid --ro-bind / / \
   --proc /proc --dev /dev --bind "$work/recovery/sandbox-probe" "$work/recovery/sandbox-probe" \
-  -- /bin/sh -c 'printf modified > "$1"' _ "$work/outside-sentinel" >"$work/bwrap-probe.log" 2>&1; then
-  echo 'FAIL: restore sandbox can write outside the permitted workspace' >&2
+  -- /bin/sh -c 'printf sandbox-active > "$1"; if printf modified > "$2"; then exit 81; fi' \
+  _ "$work/recovery/sandbox-probe/inside-marker" "$work/outside-sentinel" >"$work/bwrap-probe.log" 2>&1; then
+  echo 'FAIL: Bubblewrap could not enforce the intended mount namespace' >&2
+  cat "$work/bwrap-probe.log" >&2
   exit 1
 fi
+grep -qx 'sandbox-active' "$work/recovery/sandbox-probe/inside-marker" || { echo 'FAIL: Bubblewrap did not execute the sandboxed command' >&2; exit 1; }
 grep -qx 'protected synthetic data' "$work/outside-sentinel" || { echo 'FAIL: synthetic outside data changed' >&2; exit 1; }
 echo 'PASS: Linux restore sandbox cannot write outside its assigned host workspace'
 
