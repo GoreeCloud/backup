@@ -121,3 +121,7 @@ The manual recovery matrix includes a disposable authenticated HTTP loopback ser
 ## Compiled source-engine evidence
 
 After the pinned Kopia and Rclone binaries are built in the manual Recovery Integration workflow, scripts/build_provenance.py extracts actual compiled Go module identities, effective versions, and module sums (where Go embeds them) using go version -m on each executable. The script records the engine binaries' SHA-256 and the reviewed source manifest/build script/go.mod/go.sum SHA-256 alongside the checked-out Git commit. A second check validates the freshly written JSON against the current files. The artifact is stored under ignored build/provenance and retained for seven days by GitHub Actions. Unlike the separate resolved go list -m graph inventory, this is a compiled-binary metadata view; neither is an audited license or release attestation.
+
+## Metadata-only local preflight
+
+The protected local backupctl doctor command reads the same numeric-loopback API with the existing private token file. It validates identity and role capabilities before requesting a status and a bounded snapshot list; it does not invoke POST methods or provider-capacity queries. It distinguishes missing recovery points from an available repository and explicitly reports that no encrypted file content was restored. This is an operator information tool, not a backup readiness certification. Synthetic Go tests cover permission boundaries and malformed/oversized replies; a disposable HTTP integration test exercises the viewer token.

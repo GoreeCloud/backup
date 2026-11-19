@@ -59,3 +59,5 @@ A stage is not complete solely because its source files exist. No release date h
 - Extend local, SFTP-loopback and experimental S3-loopback recovery tests to independently provisioned, disposable S3-compatible providers; exercise timeouts, multipart failure, quotas, versioning, immutable retention and consistent copy checkpoints before enabling remote automation.
 
 - Advance the new manual unsigned compiled-engine evidence into independently repeated byte-for-byte reproducible builds across isolated Linux runners, verified license and advisory reviews, signed release artifacts and protected attestations before shipping production binaries.
+
+- Extend read-only local preflight into opt-in documented operational acceptance gates that incorporate verified offsite location, retention policy, key-recovery rehearsal, last successful snapshot age, meaningful logging and independent byte-for-byte restore evidence. Do not conflate metadata availability with recoverability.

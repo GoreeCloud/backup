@@ -66,3 +66,5 @@ Credential resilience test: a wrong passphrase on a clean copied encrypted repos
 **Experimental S3 recovery regression:** Pinned Rclone serves an authenticated, temporary loopback S3 endpoint, rejects a bad SigV4 secret, copies and downloads encrypted Kopia objects, and passes independent SHA-256 and offline Kopia verify/restore tests. No production S3 provider or live mirroring is tested.
 
 **Compiled-binary metadata evidence:** Manual recovery CI publishes a short-lived, unsigned manifest linking both source-built Kopia/Rclone executable SHA-256 hashes with the checked-out Git commit, source manifest/build script hashes and modules recorded in Go binary build metadata. This is not release signing or a reproducible-build proof.
+
+**Metadata-only Linux preflight:** The optional backupctl doctor command reports local API identity, viewer/admin scope, repository connection and presence of a visible snapshot without invoking a write, restore, provider quota operation or full-file archive verification. It fails on unreachable, missing or malformed metadata and never calls a passing preflight a recovery acceptance test.

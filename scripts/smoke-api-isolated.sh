@@ -144,6 +144,11 @@ for line in lines[1:]:
 assert sys.argv[2] not in content,"local CLI leaked absolute source root"
 print("PASS: private viewer token lists sanitized snapshots through local backupctl")
 PYCLILIST
+GCB_API_URL="$base" GCB_API_TOKEN_FILE="$work/viewer-cli-token"   "$work/backupctl" doctor --timeout=30s >"$work/doctor-viewer.txt"
+grep -q 'Credential scope: read-only viewer' "$work/doctor-viewer.txt"
+grep -q 'at least one visible snapshot' "$work/doctor-viewer.txt"
+grep -q 'No archived file contents were verified or restored' "$work/doctor-viewer.txt"
+echo 'PASS: local read-only doctor preflight reports available metadata without claiming a restore'
 curl -fsS --max-time 30 "${viewer[@]}" "$base/api/v1/snapshots" >"$work/viewer-snapshots.json"
 python3 - "$work/list.json" "$work/viewer-snapshots.json" "$work/source" <<'PYVIEWERSNAP'
 import json,sys

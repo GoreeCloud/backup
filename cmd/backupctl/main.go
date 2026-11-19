@@ -31,10 +31,14 @@ func execute(args []string, stdout, stderr io.Writer) int {
 	if len(args) > 0 && args[0] == "list" {
 		return executeList(args[1:], stdout, stderr)
 	}
+	if len(args) > 0 && args[0] == "doctor" {
+		return executeDoctor(args[1:], stdout, stderr)
+	}
 	if len(args) == 0 || args[0] != "snapshot" {
 		fmt.Fprintln(stderr, "Usage: backupctl snapshot --source=Documents [--timeout=30m]")
 		fmt.Fprintln(stderr, "       backupctl verify --accept-provider-costs [--timeout=30m]")
 		fmt.Fprintln(stderr, "       backupctl list [--limit=50] [--timeout=30s]")
+		fmt.Fprintln(stderr, "       backupctl doctor [--timeout=30s]")
 		return 2
 	}
 	flags := flag.NewFlagSet("snapshot", flag.ContinueOnError)
