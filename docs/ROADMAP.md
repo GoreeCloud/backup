@@ -12,7 +12,7 @@
 
 - Isolated backup and restore test harness, including corruption/partial-transfer test cases.
 - Robust job queue, cancellation, detailed progress and repository error mapping.
-- Restore browsing and destination-safe recovery workflow with checksums and explicit overwrite protection.
+- Extend the implemented contained restore with file-level browsing, metadata comparison, offline restore drills, checksums and robust overwrite safeguards.
 - Configurable policy engine for schedules, retention, exclude patterns and integrity verification.
 
 ## Stage C — integrations and reliability
