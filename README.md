@@ -92,7 +92,7 @@ Build using `go build -o build/bin/goreecloud-backupctl ./cmd/backupctl`. See [t
 
 ## Android
 
-Import `android/` into Android Studio with JDK 17 and Android SDK 35, then build the `app` module. The client requires an externally secured **HTTPS** endpoint. No production TLS reverse proxy, Android package, device installation or signing has been verified by this repository yet. The client does not upload phone data. A debug APK and web preview bundle are available as short-lived artifacts from successful [Verify workflow](https://github.com/GoreeCloud/backup/actions/workflows/verify.yml) runs; these are testing builds, **not** signed production releases. Inspect the associated commit and workflow before installing a debug artifact.
+Import `android/` into Android Studio with JDK 17 and Android SDK 35, then build the `app` module. The client requires an externally secured **HTTPS** endpoint. No production TLS reverse proxy, Android package, device installation or signing has been verified by this repository yet. The native Android client now lists recent recovery points, verifies archived files with explicit cost acknowledgement, and requests opt-in contained server-side restoration. It keeps credentials in volatile memory and requires trusted HTTPS without redirects; no Android device-file upload, background sync or remote provisioning is implemented. The client does not upload phone data. A debug APK and web preview bundle are available as short-lived artifacts from successful [Verify workflow](https://github.com/GoreeCloud/backup/actions/workflows/verify.yml) runs; these are testing builds, **not** signed production releases. Inspect the associated commit and workflow before installing a debug artifact.
 
 ## Tests and security
 

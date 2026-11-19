@@ -9,7 +9,7 @@
 | Pinned Kopia and Rclone upstream source | Included under `third_party/`; file hashes checked | Full transitive license/dependency audit and release packaging pending |
 | Rclone remote discovery | Implemented in Go API | Names only; no upload/sync operation |
 | Web app | React/TypeScript source | Browser and accessibility acceptance not yet complete |
-| Android app | Kotlin/Jetpack Compose read-only source | CI debug APK available for testing; signed production APK and physical-device acceptance pending |
+| Android app | Kotlin/Jetpack Compose recovery companion source | HTTPS snapshot browser, consent-based integrity verification and contained restore requests; CI debug APK available for testing; physical-device and signed-release acceptance pending |
 | Rclone backend as Kopia storage | Upstream CLI setup only | Experimental/not maintained upstream; not validated here |
 | Contained restore via API and web | Implemented, disabled unless `GCB_RESTORE_ROOT` is configured | An isolated synthetic HTTP restore passed including nested paths/symlinks/Unicode/large files; post-write unsafe-symlink/special-file audit added, but process isolation is pending |
 | Advanced recovery browsing, pruning, retention UI | Planned | Requires safe restore-target handling and nonproduction drills |
