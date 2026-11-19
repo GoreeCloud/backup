@@ -9,6 +9,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
+import java.security.MessageDigest
 import java.net.URI
 import java.net.URL
 
@@ -149,6 +150,8 @@ internal fun uploadSelectedDocument(
     require(fileName.length in 1..160 && fileName.none { it.isISOControl() || it == '/' || it == '\\' } && fileName != "." && fileName != "..") {
         "Selected document name is not supported."
     }
+    val digest = MessageDigest.getInstance("SHA-256")
+    var sentBytes = 0L
     val connection = URL(server.toString().trimEnd('/') + "/api/v1/mobile/files").openConnection() as HttpURLConnection
     try {
         connection.instanceFollowRedirects = false
@@ -175,16 +178,34 @@ internal fun uploadSelectedDocument(
                     total += read
                     require(total <= 32L * 1024L * 1024L) { "Selected file exceeds the 32 MiB limit." }
                     destination.write(bytes, 0, read)
+                    digest.update(bytes, 0, read)
                 }
                 require(total > 0) { "The selected document is empty." }
+                sentBytes = total
             }
         } ?: throw IllegalArgumentException("Selected document cannot be opened.")
         val code = connection.responseCode
         if (code != 201) throw IllegalStateException("Selected-file backup failed (HTTP $code).")
         val result = JSONObject(boundedResponse(connection))
         require(result.optBoolean("backedUp", false)) { "Backup completion was not confirmed." }
+        require(result.optLong("bytes", -1) == sentBytes) { "Server file byte count did not match the selected document." }
+        require(result.optString("sha256") == hexSha256(digest.digest())) {
+            "Server checksum did not match the selected document."
+        }
         return result
     } finally {
         connection.disconnect()
+    }
+}
+
+
+internal fun hexSha256(bytes: ByteArray): String {
+    val symbols = "0123456789abcdef"
+    return buildString(bytes.size * 2) {
+        for (value in bytes) {
+            val unsigned = value.toInt() and 0xff
+            append(symbols[unsigned ushr 4])
+            append(symbols[unsigned and 15])
+        }
     }
 }

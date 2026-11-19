@@ -3,8 +3,16 @@ package com.goreecloud.backup
 import org.junit.Assert.assertEquals
 import org.junit.Assert.fail
 import org.junit.Test
+import java.security.MessageDigest
 
 class EndpointValidationTest {
+    @Test
+    fun deterministicSha256Encoding() {
+        val hash = MessageDigest.getInstance("SHA-256").digest("abc".toByteArray(Charsets.UTF_8))
+        assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", hexSha256(hash))
+        assertEquals("00ff80", hexSha256(byteArrayOf(0, -1, -128)))
+    }
+
     @Test
     fun acceptsBareTrustedHttpsOrigin() {
         assertEquals("https://backup.example.com", checkedHttpsEndpoint("https://backup.example.com").toString())

@@ -1,11 +1,15 @@
 package backup
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -135,6 +139,49 @@ func TestMobileUploadFailedSnapshotCleansPlaintext(t *testing.T) {
 	h.ServeHTTP(w, r)
 	if w.Code != http.StatusBadGateway {
 		t.Fatalf("fake CLI expected to fail: %d %s", w.Code, w.Body.String())
+	}
+	entries, err := os.ReadDir(inbox)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("staged plaintext not removed: %v %v", entries, err)
+	}
+}
+
+func TestMobileUploadReturnsVerifiedByteCountAndSHA256(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("synthetic successful CLI uses /bin/true")
+	}
+	root := t.TempDir()
+	inbox := filepath.Join(root, "mobile")
+	if err := os.Mkdir(inbox, 0700); err != nil {
+		t.Fatal(err)
+	}
+	h, err := NewHandler(Config{Token: testToken, SourceRoot: root, MobileIngestRoot: inbox, KopiaBin: "/bin/true"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := "GoreeCloud synthetic file-content checksum evidence\n"
+	r := httptest.NewRequest("POST", "/api/v1/mobile/files", strings.NewReader(source))
+	r.Header.Set("Authorization", "Bearer "+testToken)
+	r.Header.Set("X-GCB-Filename-B64", base64.RawURLEncoding.EncodeToString([]byte("photo.txt")))
+	r.Header.Set("X-GCB-Confirm-Upload", "true")
+	r.Header.Set("Content-Type", "application/octet-stream")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("snapshot response: %d %s", w.Code, w.Body.String())
+	}
+	var outcome struct {
+		BackedUp bool   `json:"backedUp"`
+		Name     string `json:"name"`
+		Bytes    int64  `json:"bytes"`
+		SHA256   string `json:"sha256"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &outcome); err != nil {
+		t.Fatal(err)
+	}
+	expected := sha256.Sum256([]byte(source))
+	if !outcome.BackedUp || outcome.Name != "photo.txt" || outcome.Bytes != int64(len(source)) || outcome.SHA256 != fmt.Sprintf("%x", expected) {
+		t.Fatalf("unexpected upload integrity evidence: %+v", outcome)
 	}
 	entries, err := os.ReadDir(inbox)
 	if err != nil || len(entries) != 0 {
