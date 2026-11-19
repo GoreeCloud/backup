@@ -158,10 +158,12 @@ curl -fsS --max-time 45 -X POST "${auth[@]}" -H 'Content-Type: application/octet
   -H 'X-GCB-Filename-B64: cGhvbmUudHh0' -H 'X-GCB-Confirm-Upload: true' \
   --data-binary "@$work/selected-document.txt" "$base/api/v1/mobile/files" >"$work/mobile-result.json"
 python3 - "$work/mobile-result.json" "$work/source/mobile-ingest" <<'PYMOBILE'
-import pathlib,json,sys
+import pathlib,json,sys,hashlib
 result=json.load(open(sys.argv[1],encoding='utf-8'))
 assert result.get('backedUp') is True and result.get('name')=='phone.txt',result
 assert result.get('bytes')>0,result
+expected=hashlib.sha256(b'Android synthetic user-approved selected document\n').hexdigest()
+assert result.get('sha256')==expected, 'server upload SHA256 does not match synthetic source'
 stage=pathlib.Path(sys.argv[2])
 assert list(stage.iterdir())==[], 'Temporary plaintext staging directory was not cleaned'
 print('PASS: opt-in synthetic Android file upload produced encrypted Kopia backup and removed temporary plaintext staging')

@@ -2,7 +2,9 @@ package backup
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -107,7 +109,8 @@ func (h *Handler) mobileFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxMobileFileBytes)
-	bytesCopied, copyErr := io.Copy(file, r.Body)
+	digest := sha256.New()
+	bytesCopied, copyErr := io.Copy(io.MultiWriter(file, digest), r.Body)
 	syncErr := file.Sync()
 	closeErr := file.Close()
 	if copyErr != nil {
@@ -141,6 +144,7 @@ func (h *Handler) mobileFile(w http.ResponseWriter, r *http.Request) {
 	}
 	respond(w, http.StatusCreated, map[string]any{
 		"backedUp": true, "name": name, "bytes": bytesCopied,
-		"note": "Kopia snapshot completed; independently verify and restore before relying on it",
+		"sha256": hex.EncodeToString(digest.Sum(nil)),
+		"note":   "Kopia snapshot completed; independently verify and restore before relying on it",
 	})
 }
