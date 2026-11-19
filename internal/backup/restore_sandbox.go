@@ -8,13 +8,26 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 )
 
+// Presence of a bwrap binary does not prove it can create a user namespace.
+// Ubuntu/AppArmor and container policies may deny the UID mapping. Probe the
+// same namespace flags in a read-only, time-bounded child before advertising
+// the restore capability to clients.
 func restoreSandboxAvailable() bool {
 	if runtime.GOOS != "linux" {
 		return false
 	}
-	_, err := exec.LookPath("bwrap")
+	exe, err := exec.LookPath("bwrap")
+	if err != nil {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, err = run(ctx, exe, "--die-with-parent", "--new-session", "--unshare-user",
+		"--unshare-pid", "--ro-bind", "/", "/", "--proc", "/proc", "--dev", "/dev",
+		"--", "/bin/true")
 	return err == nil
 }
 

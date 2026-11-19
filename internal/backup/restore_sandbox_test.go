@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -46,5 +47,20 @@ func TestSandboxMissingFailsClosed(t *testing.T) {
 	}
 	if restoreSandboxAvailable() {
 		t.Fatal("reported enabled sandbox with no executable")
+	}
+}
+
+func TestSandboxBinaryExistsButCannotCreateNamespace(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Linux-only")
+	}
+	root := t.TempDir()
+	script := filepath.Join(root, "bwrap")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nexit 9\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", root)
+	if restoreSandboxAvailable() {
+		t.Fatal("reported available when Bubblewrap cannot start a namespace")
 	}
 }

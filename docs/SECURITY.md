@@ -70,9 +70,10 @@ When contained restoration is configured, the Linux API invokes Kopia through Bu
 
 The first GitHub-hosted recovery job for the new Bubblewrap mount isolation returned HTTP 502 during the API restore step, despite passing a flawed probe that interpreted any failed Bubblewrap command as a successful outside-write denial. The probe is now fail-closed: it requires a positive in-workspace execution marker and verifies the outside sentinel remains unchanged. If a CI runner restricts user namespaces, the job must fail with its actual diagnostic instead of claiming confinement. A passing local test does not establish portability to hosted runners.
 
-## Ephemeral GitHub runner user-namespace permission
 
-The corrected recovery CI probe proved that GitHub's Ubuntu 24.04 hosted runner denied Bubblewrap's UID-map setup (`bwrap: setting up uid map: Permission denied`). For the **manual, synthetic recovery workflow only**, a dedicated step records the runner's original `kernel.apparmor_restrict_unprivileged_userns` value and temporarily sets it to 0 *after* source builds and the corruption drill; an `if: always()` cleanup step restores the exact original 0/1 value, including after test failures. This is not a production host tuning recommendation and is not used by any deployed GoreeCloud service. The result must be revalidated on GitHub before claiming that the hosted restore test passed. This change acknowledges a temporary reduction in isolation on the disposable runner to exercise the independent Bubblewrap mount boundary; it must not be copied onto personal or shared hosts.
+### GitHub-hosted recovery prerequisite (Ubuntu 24.04)
+
+The hosted failure on recovery run `44529992830` was traced to `bwrap: setting up uid map: Permission denied` on the disposable Ubuntu 24.04 runner. The manual workflow now loads Ubuntu's distribution-provided `bwrap-userns-restrict` AppArmor profile for Bubblewrap **only on the ephemeral runner**, and positively tests both sandbox execution and an outside-workspace write denial before running expensive recovery tests. It does not set `kernel.apparmor_restrict_unprivileged_userns=0` or modify the user's devices. The API's `restoreEnabled` capability now requires an executable namespace probe rather than merely finding the binary. If a host denies user namespaces even with the profile, restores fail closed and operator configuration remains required.
 
 ## Mobile selected-file upload boundary
 
