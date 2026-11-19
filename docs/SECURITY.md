@@ -23,3 +23,7 @@ For private vulnerability reports, use GitHub's private vulnerability reporting 
 3. Data corruption, incomplete backup or undecryptable archive; require proof-of-restore, checksums and audited retention operations.
 4. Untrusted Rclone remote or upstream dependency; verify versions, provenance, licenses and advisories; pin audited release artifacts.
 5. Arbitrary filesystem access via symlink races; constrain source ownership and implement stronger native filesystem containment before multi-user exposure.
+
+## Imported upstream test fixture alert
+
+A public imported Kopia S3 test fixture triggered secret-scanning alert #1 for an AWS-style temporary access key ID. It matches an upstream public test line inside an expired-session credentials provider. Current validity is unknown. The working-tree source replaces its credential-shaped literals with invalid placeholders and records the difference in `third_party/PATCHES.md`. The historical commit remains; potential credential owners must verify expiry and rotate/revoke if appropriate. Do not dismiss the alert or claim revocation merely because the source was patched.

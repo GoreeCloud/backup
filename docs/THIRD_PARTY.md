@@ -16,3 +16,7 @@ Pinned tag commits and source file checksums are recorded in `third_party/UPSTRE
 React, Vite, TypeScript, Gradle Wrapper (Apache-2.0), Kotlin and AndroidX dependencies remain upstream dependencies resolved by their respective package managers, governed by their original licenses. A full dependency SBOM, advisories, notarization and provenance verification are required before release. This is not an upstream-complete licensing audit.
 
 GoreeCloud's first-party Go service, React screens and Kotlin client source are licensed under the repository-level Apache-2.0 license; upstream notices are not superseded.
+
+## Local upstream difference
+
+One Kopia S3 integration-test credential fixture was changed from a credential-shaped literal to unmistakably invalid development placeholders. It is not a production credential configuration or a change to the backup encryption engine. The original publicly committed test value may remain in repository history; do not assume that a current file edit invalidates or revokes leaked credentials. See `third_party/PATCHES.md` and GitHub secret-scanning alert #1.
