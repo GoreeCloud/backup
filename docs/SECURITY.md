@@ -50,3 +50,7 @@ The optional workflow `recovery-manual.yml` builds the pinned Kopia/Rclone sourc
 ## Android companion client
 
 The native recovery companion rejects URL paths, userinfo, query strings, fragments and non-HTTPS endpoints; it does not follow redirects with bearer credentials, limits JSON responses to 1 MiB and keeps credentials in volatile process memory. Android backup/restore of phone files, Keystore-based account pairing and audited background jobs are not implemented. The app excludes its window from screenshots and recent-apps thumbnails by default. The optional server-side verification and contained-restore actions require explicit in-app consent and remain governed by backend validation and capacity limits.
+
+## Rclone provider-capacity boundary
+
+The optional quota endpoint uses fixed Rclone CLI arguments and accepts only a remote name matching an existing configured remote. It rejects flags, destination paths and duplicate remote query parameters; it never accepts raw Rclone commands or transfers backup content. It caps execution time and JSON output and allows only one remote inspection per process. A capacity check may contact an external cloud provider, expose account quota to an authenticated user, and incur provider costs; it is never performed automatically by the web UI. Unsupported or failing backends must not be treated as zero available capacity.
