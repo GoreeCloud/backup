@@ -169,3 +169,9 @@ The optional manual CI publishes a deterministic, unsigned manifest of built Kop
 ## Read-only doctor permission boundary
 
 The backupctl doctor command uses a 0600 token file, no-proxy and no-redirect numeric-loopback HTTP and a shared timeout for all metadata requests. Responses are bounded and never echo untrusted server error bodies or credentials. Read-only viewer capability metadata must not claim write/verify/restore permissions; inconsistent metadata fails closed. Doctor performs GET info/status/snapshot-list only: it **does not** pay for full-content archive verification, mutate repositories, restore or query Rclone remote capacities. The configured Kopia remote may still incur metadata reads. A displayed snapshot is not evidence that its encryption password is recoverable or that its contents can be restored.
+
+## Two-runner reproducibility acceptance boundary
+
+The optional Independent Linux AMD64 Reproducibility workflow runs separate jobs with distinct compiled-object caches, identical source commit and Go 1.26.0 linux/amd64 settings. Both jobs verify the vendored source SHA-256 manifest before reading the included code, use Go module checksums and readonly module resolution, and build with trimpath and buildvcs disabled. A third job compares **only** SHA-256 strings exported by the builders through environment variables (never interpolated into shell program text). A mismatch causes failure. Compiled binaries are not published as release artifacts.
+
+A match does not ensure the common sources, toolchain, third-party modules, Ubuntu runner image or CI service are uncompromised; nor does it prove reproducibility on a different architecture, operating system, toolchain or signing pipeline. Treat it as one necessary but insufficient supply-chain gate, not as a signed SLSA attestation or proof that vulnerability/license audits are complete.

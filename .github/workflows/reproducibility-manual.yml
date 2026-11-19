@@ -1,0 +1,97 @@
+name: Independent Linux AMD64 Reproducibility (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Distinct clean Ubuntu workers run the exact same source-build script, and a
+# third job compares hashes. This does not sign or publish production binaries.
+jobs:
+  first:
+    name: build-first-runner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    outputs:
+      kopia: ${{ steps.hashes.outputs.kopia }}
+      rclone: ${{ steps.hashes.outputs.rclone }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.26.0'
+          cache: true
+          cache-dependency-path: |
+            third_party/kopia/go.sum
+            third_party/rclone/go.sum
+      - name: Rebuild pinned sources with a fresh compiled object cache
+        run: ./scripts/rebuild-linux-amd64.sh
+      - name: Export only SHA-256 hashes
+        id: hashes
+        run: |
+          set -euo pipefail
+          echo "kopia=$(sha256sum build/reproducibility/bin/kopia | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "rclone=$(sha256sum build/reproducibility/bin/rclone | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+  second:
+    name: build-second-runner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    outputs:
+      kopia: ${{ steps.hashes.outputs.kopia }}
+      rclone: ${{ steps.hashes.outputs.rclone }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.26.0'
+          cache: true
+          cache-dependency-path: |
+            third_party/kopia/go.sum
+            third_party/rclone/go.sum
+      - name: Rebuild pinned sources with a fresh compiled object cache
+        run: ./scripts/rebuild-linux-amd64.sh
+      - name: Export only SHA-256 hashes
+        id: hashes
+        run: |
+          set -euo pipefail
+          echo "kopia=$(sha256sum build/reproducibility/bin/kopia | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "rclone=$(sha256sum build/reproducibility/bin/rclone | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+  compare:
+    name: compare-independent-binary-hashes
+    runs-on: ubuntu-24.04
+    needs: [first, second]
+    timeout-minutes: 5
+    env:
+      KOPIA_FIRST: ${{ needs.first.outputs.kopia }}
+      KOPIA_SECOND: ${{ needs.second.outputs.kopia }}
+      RCLONE_FIRST: ${{ needs.first.outputs.rclone }}
+      RCLONE_SECOND: ${{ needs.second.outputs.rclone }}
+    steps:
+      - name: Validate and compare hashes without executing output content
+        shell: bash
+        run: |
+          set -euo pipefail
+          for value in "$KOPIA_FIRST" "$KOPIA_SECOND" "$RCLONE_FIRST" "$RCLONE_SECOND"; do
+            if [[ ! "$value" =~ ^[a-f0-9]{64}$ ]]; then
+              echo "Invalid or missing worker SHA-256 result" >&2
+              exit 1
+            fi
+          done
+          if [[ "$KOPIA_FIRST" != "$KOPIA_SECOND" ]]; then
+            echo "FAIL: pinned Kopia Linux AMD64 binaries are NOT reproducible across two workers" >&2
+            exit 1
+          fi
+          if [[ "$RCLONE_FIRST" != "$RCLONE_SECOND" ]]; then
+            echo "FAIL: pinned Rclone Linux AMD64 binaries are NOT reproducible across two workers" >&2
+            exit 1
+          fi
+          echo "PASS: independently compiled Kopia and Rclone Linux AMD64 binaries have identical SHA-256"
+          echo "Scope: Ubuntu 24.04, Go 1.26.0, linux/amd64, CGO_ENABLED=0, same pinned source"
+          echo "Not evaluated: cross-platform reproducibility, cryptographic attestation or release signing"
