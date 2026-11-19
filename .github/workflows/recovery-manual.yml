@@ -60,6 +60,8 @@ jobs:
           retention-days: 7
       - name: Isolated encrypted archive, deduplication and restore
         run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-isolated.sh
+      - name: Isolated Linux metadata restore acceptance and hardlink-limit evidence
+        run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-metadata-isolated.sh
       - name: Isolated encrypted pack corruption detection
         run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-corruption-isolated.sh
       - name: Isolated non-destructive Rclone mirror with independent Kopia restore
