@@ -53,7 +53,15 @@ jobs:
       - name: Prepare Android SDK 35 on GitHub runner
         run: |
           sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
-      - run: ./gradlew --no-daemon :app:assembleDebug
+      - name: Check upstream Gradle dependency access
+        run: |
+          for url in \
+            'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/2.0.21/kotlin-reflect-2.0.21.pom' \
+            'https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-reflect/2.0.21/kotlin-reflect-2.0.21.pom'; do
+            printf '%s: ' "$url"
+            curl -sSIL --max-time 15 --retry 2 -o /dev/null -w '%{http_code}\n' "$url" || true
+          done
+      - run: ./gradlew --no-daemon --refresh-dependencies :app:assembleDebug
   docs:
     name: docs
     runs-on: ubuntu-24.04
