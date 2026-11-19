@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './gc-tokens.css'
 import './styles.css'
@@ -15,7 +15,29 @@ const formatCapacity = (amount: number, isObjects: boolean) => {
   while (size >= 1024 && index < units.length - 1) { size /= 1024; index++ }
   return `${size.toFixed(index ? 1 : 0)} ${units[index]}`
 }
-type BackupInfo = { restoreEnabled: boolean }
+type BackupInfo = { restoreEnabled: boolean; mobileUploadEnabled: boolean }
+type SelectedFileResult = { backedUp: boolean; name: string; bytes: number; sha256: string; note: string }
+const maxSelectedBytes = 32 * 1024 * 1024
+const isTrustedOrigin = () => window.location.protocol === 'https:' ||
+  (window.location.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]', '::1'].includes(window.location.hostname))
+const toBase64Url = (input: string) => {
+  const bytes = new TextEncoder().encode(input)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+const selectedFileSHA256 = async (file: File) => {
+  if (!crypto.subtle) throw new Error('A secure browser context is required for file integrity verification')
+  const checksum = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
+  return Array.from(new Uint8Array(checksum), byte => byte.toString(16).padStart(2, '0')).join('')
+}
+const validSelectedFile = (file: File) => {
+  const name = file.name
+  const bytes = new TextEncoder().encode(name)
+  return file.size > 0 && file.size <= maxSelectedBytes &&
+    bytes.length > 0 && bytes.length <= 160 && name.trim() === name &&
+    name !== '.' && name !== '..' && !/[\x00-\x1F\x7F-\x9F\/\\]/u.test(name)
+}
 type RestoreResult = { restored: boolean; snapshotId: string; relativePath: string; note: string }
 type Verification = { verified: boolean; filesRead: number; bytesRead: number; note: string }
 type ServerError = { error?: string }
@@ -23,7 +45,8 @@ const api = async <T,>(path: string, token: string, init: RequestInit = {}): Pro
   const response = await fetch(path, {
     ...init,
     headers: { 'Authorization': `Bearer ${token}`, ...(init.body ? { 'Content-Type': 'application/json' } : {}) },
-    cache: 'no-store'
+    cache: 'no-store',
+    redirect: 'error'
   })
   const body = (await response.json()) as T & ServerError
   if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`)
@@ -42,6 +65,10 @@ function App() {
   const [capacityBusy, setCapacityBusy] = useState(false)
   const [source, setSource] = useState('')
   const [restoreEnabled, setRestoreEnabled] = useState(false)
+  const [selectedBackupEnabled, setSelectedBackupEnabled] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedFileConsent, setSelectedFileConsent] = useState(false)
+  const fileInput = useRef<HTMLInputElement | null>(null)
   const [restoreId, setRestoreId] = useState('')
   const [restoreConsent, setRestoreConsent] = useState(false)
   const [lastRestore, setLastRestore] = useState<RestoreResult | null>(null)
@@ -67,6 +94,7 @@ function App() {
       setCapacity(null)
       setCapacityError('')
       setRestoreEnabled(info.status === 'fulfilled' && Boolean(info.value.restoreEnabled))
+      setSelectedBackupEnabled(info.status === 'fulfilled' && Boolean(info.value.mobileUploadEnabled))
       if (shots.status === 'rejected') setLastAction('Snapshot list unavailable; check Kopia connection')
     } catch (cause) {
       setStatus(null)
@@ -77,6 +105,7 @@ function App() {
   const connect = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const next = draftToken.trim()
+    if (!isTrustedOrigin()) { setError('Use HTTPS or numeric local loopback before entering a bearer token'); return }
     if (next.length < 32) { setError('Enter your configured 32+ character access token'); return }
     setToken(next)
     setDraftToken('')
@@ -148,6 +177,47 @@ function App() {
     } finally { setCapacityBusy(false) }
   }
 
+  const backupSelectedFile = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedBackupEnabled || busy || !status?.connected || !selectedFileConsent || !selectedFile) return
+    if (!isTrustedOrigin()) { setError('Only trusted HTTPS or local loopback may send files'); return }
+    if (!validSelectedFile(selectedFile)) {
+      setError('Choose one nonempty file of at most 32 MiB with a valid filename')
+      return
+    }
+    setBusy(true)
+    setError('')
+    setLastAction('Uploading only the selected document and creating an encrypted Kopia snapshot. Keep this tab open.')
+    try {
+      const selectedHash = await selectedFileSHA256(selectedFile)
+      const response = await fetch('/api/v1/mobile/files', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/octet-stream',
+          'X-GCB-Filename-B64': toBase64Url(selectedFile.name),
+          'X-GCB-Confirm-Upload': 'true'
+        },
+        body: selectedFile,
+        cache: 'no-store',
+        redirect: 'error'
+      })
+      const payload = await response.json() as SelectedFileResult & ServerError
+      if (!response.ok) throw new Error(payload.error || `Selected-file backup failed (HTTP ${response.status})`)
+      if (!payload.backedUp || payload.name !== selectedFile.name || payload.bytes !== selectedFile.size ||
+          payload.sha256 !== selectedHash) {
+        throw new Error('The server did not confirm the expected file size and SHA-256 fingerprint')
+      }
+      setLastAction(`Encrypted snapshot completed for ${payload.name} (${payload.bytes.toLocaleString()} bytes). Independently verify and restore-test before relying on it.`)
+      setSelectedFile(null)
+      setSelectedFileConsent(false)
+      if (fileInput.current) fileInput.current.value = ''
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Selected-file backup failed')
+      setLastAction('Selected-file backup was not confirmed.')
+    } finally { setBusy(false) }
+  }
+
   const snapshotIds = snapshots.map(item => {
     if (item && typeof item === 'object' && 'id' in item && typeof item.id === 'string') return item.id
     return ''
@@ -162,6 +232,7 @@ function App() {
           <a href="#snapshots">Snapshots</a>
           <a href="#verification">Verify integrity</a>
           <a href="#restore">Restore workspace</a>
+          <a href="#file-backup">Select a file</a>
           <a href="#destinations">Destinations</a>
         </nav>
         <p className="sidebar-note">Local-first · No telemetry<br />Development preview v0.1.0</p>
@@ -217,6 +288,19 @@ function App() {
                 <div><label htmlFor="source">Source directory (relative)</label><input id="source" value={source} onChange={e => setSource(e.target.value)} placeholder="Documents" required disabled={busy} /></div>
                 <button type="submit" disabled={busy || !status?.connected}>{busy ? 'Working…' : 'Back up now'}</button>
               </form>
+            </section>
+            <section className="panel" id="file-backup">
+              <div className="eyebrow">USER-SELECTED BACKUP</div><h2>Back up one file from this device</h2>
+              <p className="subtle">Choose one document, explicitly approve its transfer, and let your configured server create an encrypted Kopia snapshot. No automatic file access or background upload occurs. Maximum 32 MiB.</p>
+              {!selectedBackupEnabled ? <p className="hint">This capability is disabled until the operator configures a private GCB_MOBILE_INGEST_ROOT directory on the backup server.</p> :
+                <form onSubmit={backupSelectedFile} className="selected-file-form">
+                  <label htmlFor="selectedBackupFile">Document to back up</label>
+                  <input id="selectedBackupFile" ref={fileInput} type="file" disabled={busy} onChange={e => { setSelectedFile(e.target.files?.[0] || null); setSelectedFileConsent(false) }} />
+                  {selectedFile && <p className="hint">{selectedFile.name} · {selectedFile.size.toLocaleString()} bytes {validSelectedFile(selectedFile) ? '' : '— unsupported file size or filename'}</p>}
+                  <label className="verify-consent"><input type="checkbox" disabled={busy || !selectedFile || !validSelectedFile(selectedFile)} checked={selectedFileConsent} onChange={e => setSelectedFileConsent(e.target.checked)} /> I authorize uploading this one file to my configured server and understand network charges may apply.</label>
+                  <button type="submit" disabled={busy || !selectedFile || !selectedFileConsent || !status?.connected || !validSelectedFile(selectedFile)}>{busy ? 'Operation in progress…' : 'Back up selected file'}</button>
+                </form>}
+              <p className="hint">The upload is protected in transit by HTTPS when accessed remotely, but the server temporarily handles plaintext before Kopia encrypts its snapshot. This is not device-side end-to-end encryption. A process crash may require manual cleanup of protected staging files.</p>
             </section>
             <section className="panel" id="verification">
               <div className="eyebrow">INTEGRITY CHECK</div><h2>Verify archived data</h2>
