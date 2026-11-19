@@ -1,0 +1,15 @@
+# Build products and local-only state
+web/node_modules/
+web/dist/
+android/.gradle/
+android/**/build/
+.gradle/
+*.apk
+*.keystore
+*.jks
+.env
+.env.*
+!.env.example
+.DS_Store
+
+web/*.tsbuildinfo
