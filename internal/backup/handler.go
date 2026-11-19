@@ -29,7 +29,10 @@ type Handler struct {
 	remoteGate  chan struct{}
 	restoreRoot string
 	mobileRoot  string
-	webDir      string
+	// Staging is bound to the directory identity checked at server startup.
+	// A substituted path must not redirect plaintext into another directory.
+	mobileInfo os.FileInfo
+	webDir     string
 }
 
 func ConfigFromEnv() (Config, error) {
@@ -128,7 +131,14 @@ func NewHandler(cfg Config) (http.Handler, error) {
 		(pathInside(mobileRoot, restoreRoot) || pathInside(restoreRoot, mobileRoot)) {
 		return nil, errors.New("mobile ingest and restore roots must be separate, non-overlapping directories")
 	}
-	h := &Handler{cfg: cfg, root: root, restoreRoot: restoreRoot, mobileRoot: mobileRoot, webDir: webDir, jobGate: make(chan struct{}, 1), remoteGate: make(chan struct{}, 1)}
+	var mobileInfo os.FileInfo
+	if mobileRoot != "" {
+		mobileInfo, err = os.Lstat(mobileRoot)
+		if err != nil || !mobileInfo.IsDir() || mobileInfo.Mode().Perm()&0077 != 0 {
+			return nil, errors.New("mobile ingest directory changed during startup")
+		}
+	}
+	h := &Handler{cfg: cfg, root: root, restoreRoot: restoreRoot, mobileRoot: mobileRoot, mobileInfo: mobileInfo, webDir: webDir, jobGate: make(chan struct{}, 1), remoteGate: make(chan struct{}, 1)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")

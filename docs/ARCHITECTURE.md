@@ -99,3 +99,8 @@ The local `backupctl list` client is read-only and limits the response body to 2
 ## Android theme parity with GoreeCloud UI
 
 The canonical locally tracked `web/src/gc-tokens.css` token snapshot is parsed by a standard-library Python script to produce Material3 `lightColorScheme` and `darkColorScheme` definitions for native Android. The app follows `isSystemInDarkTheme()` and reads colors from the active Material theme instead of hard-coded light-only values. Build/CI validation rejects any mismatch between generated Kotlin colors and the verified token stylesheet. This is not a claim that all centralized navigation, component, interaction or accessibility requirements are complete.
+
+
+## Anchored plaintext upload I/O
+
+Selected-file ingestion opens a Go `os.Root` for the canonical, empty, owner-only staging directory and verifies its on-disk identity against the startup check, rather than relying on path validation alone. Secure random subdirectories, exclusive file writes and specific cleanup operations use that handle; if the containing directory is renamed, those I/O operations remain attached to its original inode. A final path identity check precedes Kopia's independent snapshot command. The required Go 1.24 module compatibility is preserved without `os.Root.RemoveAll` (available only in later Go versions). The separate configured source/restore boundary is retained. Review the documented same-UID path lookup race and crash residue limitations before production use.
