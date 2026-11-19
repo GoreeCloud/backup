@@ -25,3 +25,5 @@ Source and tests establish development capabilities, not production backup relia
 
 
 **Supply-chain visibility:** Manually invoked Recovery Integration CI also generates a dated-by-workflow resolved-Go-module CycloneDX inventory artifact for the attributed Kopia and Rclone source trees. This records module selection only; full transitive licensing/advisory and release provenance audits remain open.
+
+**Web selected-file backup:** The React workspace now offers the same consent-gated, single-file foreground upload as the Android system-picker client when the private server ingress is configured. Source selection remains explicit; automatic browser directory access, background synchronization and client-side end-to-end encryption are not claimed.

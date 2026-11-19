@@ -138,3 +138,12 @@ Upload credentials and phone contents must not be logged, copied into Git, or tr
 ### Source module inventory
 
 After the manual `Recovery Integration` workflow builds the pinned Kopia and Rclone sources, it publishes a seven-day `goreecloud-backup-resolved-go-modules` CycloneDX JSON artifact. For a local developer with Go 1.26 and complete reviewed Go module metadata, run `python3 scripts/go_module_sbom.py` (writes only beneath ignored `build/sbom/`). Pure parser/ordering tests: `python3 -m unittest discover -s tests -p 'test_go_module_sbom.py'`. This inventory is deliberately **not** labeled a complete binary/dependency-license/security audit.
+
+### Web selected-file backup
+
+The React web workspace can also back up **one explicitly selected file** (up to 32 MiB) through the existing authenticated selected-file ingress endpoint, when the server operator has opted in with `GCB_MOBILE_INGEST_ROOT`. It never reads directories or uploads other files automatically. Remote access must be HTTPS; only local loopback HTTP is accepted for development. Upload requests explicitly refuse HTTP redirects to protect bearer credentials and require an in-page consent checkbox. The browser does not persist selected files or tokens across reloads.
+
+**Privacy boundary:** TLS protects transit to the operator-controlled server, but the server temporarily holds the selected file in plaintext before Kopia encrypts it into the repository. This is *not* device-side end-to-end encryption. The application removes staged plaintext on normal completion and most failures, but an abrupt process/host crash could leave private staging files for operator review and cleanup. Use a hardened, least-privileged server and do not rely on this feature for irreplaceable data until independent recovery acceptance has passed.
+
+
+The browser computes SHA-256 of the user-selected file in the secure browser context and checks it against the server's received-bytes receipt before reporting success. This detects accidental upload corruption or mismatched responses but is **not proof of future repository recoverability** or end-to-end encryption.

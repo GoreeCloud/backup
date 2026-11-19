@@ -31,6 +31,8 @@
 A stage is not complete solely because its source files exist. No release date has been committed.
 
 
+- Extend opt-in foreground selected-file ingestion (web and Android) with crash-safe private staging, explicit operator inspection/cleanup, resilient resumable transfers and independently verified optional device-side encryption before treating it as a privacy-certified solution.
+
 ### Software supply chain
 
 - Expand the implemented resolved-Go-module inventory into a complete, independently checked binary dependency/permissions/licensing/advisory/SBOM audit covering pinned Go engines, Android/Gradle, web/npm, operating-system libraries, CI actions, and distribution artifacts.

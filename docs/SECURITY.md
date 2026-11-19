@@ -90,3 +90,10 @@ The `Verify` and manually triggered `Recovery Integration` workflows pin all ext
 ## Foreground selected-file upload integrity receipt
 
 The Android client computes a SHA-256 digest while streaming a chosen file over trusted HTTPS. After Kopia snapshot creation and temporary plaintext cleanup, the API returns the number of bytes received and a SHA-256 digest of the uploaded plaintext. Android refuses to report success if either differs from the locally streamed bytes. This detects some silent transport or staging discrepancies and does not require sending a separate plaintext checksum in a header. The digest is transmitted only within the authenticated HTTPS response and is not persisted by the app. A matching receipt alone does **not** prove the encrypted repository remains durable or restorable; synthetic restore testing and real recovery drills remain necessary. Plaintext SHA-256 fingerprints can disclose file identity if leaked, so do not log or publish them.
+
+## Browser upload and bearer-token controls
+
+The browser refuses to connect the bearer token on a non-loopback plaintext origin, prevents cross-origin redirects for authenticated API requests, and uploads only an explicitly selected and consented document to the same-origin opt-in ingress endpoint. Filename bytes are encoded as base64url UTF-8 rather than inserted directly into HTTP headers. A local 32 MiB ceiling matches server enforcement, and the selected `File` object and bearer token stay in memory rather than localStorage. The operator's server **temporarily receives plaintext** before Kopia encryption. Unexpected crashes can leave private staged files; use a dedicated private staging root, least privilege, appropriate secure cleanup procedures and independent recovery tests. Never confuse HTTPS transport confidentiality with end-to-end encryption.
+
+
+The browser computes SHA-256 of the user-selected file in the secure browser context and checks it against the server's received-bytes receipt before reporting success. This detects accidental upload corruption or mismatched responses but is **not proof of future repository recoverability** or end-to-end encryption.
