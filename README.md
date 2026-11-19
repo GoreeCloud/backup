@@ -30,6 +30,8 @@ From the repository root, after installing a supported Go toolchain, run `./scri
 | `.github/workflows/` | CI verification |
 | `third_party/kopia/`, `third_party/rclone/` | Pinned upstream engine sources, licensing and modules |
 | `scripts/build-upstreams.sh` | Checked source builds |
+| `cmd/backupctl/` and `packaging/systemd/` | Protected local snapshot client and opt-in Linux schedule templates |
+| `cmd/backupctl/` and `packaging/systemd/` | Protected local snapshot client and opt-in Linux schedule templates |
 
 ## Prerequisites
 
@@ -75,6 +77,18 @@ curl -X POST -H "Authorization: Bearer $GCB_API_TOKEN" http://127.0.0.1:8787/api
 ```
 
 The example assumes an existing `Documents` directory *below* the source root, and an already-connected Kopia repository. Contained restore is opt-in and **never** writes into the source root. Configure an existing directory owned by the least-privileged service account, with no group/other write permission and entirely disjoint from the source root; the service allocates a fresh private workspace for each restore. Review symlinks and recovered file permissions before accessing restored files. Recovery and actual cloud-provider durability remain independently unverified. A 100% verification may incur cloud egress fees; the web UI requires explicit acknowledgement. Verification does not replace a tested restore. Avoid backing up live databases without application-consistent snapshots.
+
+## Optional scheduled snapshots on Linux
+
+A first-party `backupctl` binary allows **explicitly configured** systemd timers to call the authenticated, loopback-only backup API. It never accepts an API token on the command line, refuses non-loopback endpoints and HTTP redirects, and reads a private file supplied by the operator. No timers, credentials, accounts or services are installed/enabled by the repository.
+
+Build using `go build -o build/bin/goreecloud-backupctl ./cmd/backupctl`. See [the opt-in systemd deployment templates](packaging/systemd/README.md) before installing or enabling anything. Timed backups are only as consistent as the applications' source snapshots; a timer firing is not proof of successful recovery.
+
+## Optional scheduled snapshots on Linux
+
+A first-party `backupctl` binary allows **explicitly configured** systemd timers to call the authenticated, loopback-only backup API. It never accepts an API token on the command line, refuses non-loopback endpoints and HTTP redirects, and reads a private file supplied by the operator. No timers, credentials, accounts or services are installed/enabled by the repository.
+
+Build using `go build -o build/bin/goreecloud-backupctl ./cmd/backupctl`. See [the opt-in systemd deployment templates](packaging/systemd/README.md) before installing or enabling anything. Timed backups are only as consistent as the applications' source snapshots; a timer firing is not proof of successful recovery.
 
 ## Android
 

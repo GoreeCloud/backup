@@ -13,7 +13,8 @@
 | Rclone backend as Kopia storage | Upstream CLI setup only | Experimental/not maintained upstream; not validated here |
 | Contained restore via API and web | Implemented, disabled unless `GCB_RESTORE_ROOT` is configured | An isolated synthetic HTTP restore passed; no arbitrary restore destination or live overwrite |
 | Advanced recovery browsing, pruning, retention UI | Planned | Requires safe restore-target handling and nonproduction drills |
-| Continuous schedules and alerts | Planned | Needs scheduler, state tracking and secure notifications |
+| Opt-in Linux systemd scheduled snapshots | Source templates and protected local CLI implemented | Explicit operator installation required; not active or deployed |
+| Cross-platform schedule UI, alerts and persistent job management | Planned | Needs durable scheduler, state tracking and secure notifications |
 | Android device backup/restore | Planned | Scoped storage/permissions and encrypted transport needed |
 | GoreeCloud Mesh, Identity, GoreeShield, Wardveil integration | Requirements identified | No external runtime integration claimed |
 

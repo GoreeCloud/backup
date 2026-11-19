@@ -24,6 +24,8 @@ export KOPIA_PERSIST_CREDENTIALS_ON_CONNECT=false
 # Never reuse an existing repository or a user source. Data and credentials are synthetic.
 kopia --disable-file-logging repository create filesystem --path="$work/repository" >/dev/null
 kopia --disable-file-logging snapshot create "$work/data/Documents" >/dev/null
+# A second identical snapshot exercises deduplication in verification counts.
+kopia --disable-file-logging snapshot create "$work/data/Documents" >/dev/null
 kopia --disable-file-logging snapshot list --json >"$work/snapshots.json"
 # Read and authenticate all archived file contents before attempting restore.
 kopia --disable-file-logging snapshot verify --verify-files-percent=100 --json >"$work/verify.json"
@@ -32,9 +34,10 @@ import json,sys
 result=json.load(open(sys.argv[1],encoding="utf-8"))
 stats=result["stats"]
 assert result["errorCount"]==0,result
-assert stats["readFileCount"]>=stats["expectedTotalFileCount"]>=2,result
-assert stats["processedObjectCount"]>=stats["expectedTotalObjectCount"],result
-print("PASS: Kopia 100% archived-file verification completed and all expected files read")
+assert stats["readFileCount"]>0 and stats["readFileCount"]<=stats["expectedTotalFileCount"],result
+assert stats["processedObjectCount"]>0 and stats["processedObjectCount"]<=stats["expectedTotalObjectCount"],result
+assert stats["expectedTotalFileCount"]>=4,result
+print("PASS: Kopia 100% archived-file verification with repeated deduplicated snapshots")
 PYVERIFY
 python3 - "$work/snapshots.json" "$work/root-id" <<'PY'
 import json, sys

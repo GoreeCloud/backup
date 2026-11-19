@@ -9,7 +9,7 @@
 - The API is single-admin and lacks per-user accounts, authorization roles, rate limits, full audit logs and key rotation workflow. Integration with GoreeCloud Identity and Wardveil remains planned.
 - The source-root containment check resolves symlinks but does not prevent concurrent filesystem mutation (TOCTOU). Keep the tree immutable to untrusted users for the duration of a backup.
 - Contained restore is disabled by default and requires an existing private `GCB_RESTORE_ROOT` disjoint from the source tree; every restore receives a new owner-only workspace, with no caller-selected destination or overwrites. Symlinks inside recovered files may still point outside the workspace and must be treated as untrusted before use. Filesystem mutation races remain a risk if untrusted users can alter restore-root ancestors; avoid shared mutable parent directories.
-- Archive verification reads all snapshot files only on explicit request, is serialized with snapshot creation and may incur transfer costs. API success requires reported read counts to match expected counts with no reported errors.
+- Archive verification reads all snapshot files only on explicit request, is serialized with snapshot creation and may incur transfer costs. API success requires an upstream success exit, zero reported errors and evidence of at least one file verified. Kopia counts deduplicated unique objects separately from total file references across repeated snapshots; these totals are not expected to match.
 - Real restore integrity, retention deletion safety, disaster recovery and cloud backend compatibility are **unverified**. Test isolated backups and restores before trusting any repository.
 - The bundled upstream engine source is version-pinned; `scripts/build-upstreams.sh` checks its SHA256 file manifest, uses a checksum-verified public Go module proxy and does not run upstream installers. A complete transitive malware/license/SBOM audit is pending; do not treat hash checking alone as certification.
 - No telemetry or trackers are intentionally included. GoreeShield-specific consent/retention policies and Mesh data exchange require separate control verification.
@@ -27,3 +27,11 @@ For private vulnerability reports, use GitHub's private vulnerability reporting 
 ## Imported upstream test fixture alert
 
 A public imported Kopia S3 test fixture triggered secret-scanning alert #1 for an AWS-style temporary access key ID. It matches an upstream public test line inside an expired-session credentials provider. Current validity is unknown. The working-tree source replaces its credential-shaped literals with invalid placeholders and records the difference in `third_party/PATCHES.md`. The historical commit remains; potential credential owners must verify expiry and rotate/revoke if appropriate. Do not dismiss the alert or claim revocation merely because the source was patched.
+
+## Scheduled local snapshot client
+
+The optional Linux `backupctl` reads the bearer credential from a private, regular file (0600 or stricter), never from command-line flags, and refuses remote/non-numeric/non-loopback endpoints, proxy use and HTTP redirects. The systemd timer/service templates remain **disabled until deliberately installed** and require systemd credentials, an existing service account and reviewed paths. Neither repository secrets nor user-specific schedules are stored in Git. The local service must enforce its own authentication, and a successful timer run alone does not certify recoverability.
+
+## Scheduled local snapshot client
+
+The optional Linux `backupctl` reads the bearer credential from a private, regular file (0600 or stricter), never from command-line flags, and refuses remote/non-numeric/non-loopback endpoints, proxy use and HTTP redirects. The systemd timer/service templates remain **disabled until deliberately installed** and require systemd credentials, an existing service account and reviewed paths. Neither repository secrets nor user-specific schedules are stored in Git. The local service must enforce its own authentication, and a successful timer run alone does not certify recoverability.

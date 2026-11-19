@@ -32,6 +32,7 @@ export KOPIA_PERSIST_CREDENTIALS_ON_CONNECT=false
 
 kopia --disable-file-logging repository create filesystem --path="$work/repository" >/dev/null
 go build -o "$work/backupd" "$root/cmd/backupd"
+go build -o "$work/backupctl" "$root/cmd/backupctl"
 port="$(python3 - <<'PY'
 import socket
 with socket.socket() as s:
@@ -62,6 +63,12 @@ test "$unauth_status" = 401 || { echo "unauthenticated request accepted: $unauth
 
 curl -fsS --max-time 40 -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"source":"Documents"}' "$base/api/v1/snapshots" >"$work/created.json"
+# The protected local client uses a private token file; never log or pass a token flag.
+printf '%s' "$GCB_API_TOKEN" >"$work/cli-token"
+chmod 600 "$work/cli-token"
+GCB_API_URL="$base" GCB_API_TOKEN_FILE="$work/cli-token" "$work/backupctl" snapshot --source=Documents >"$work/cli-result.txt"
+grep -q 'Kopia snapshot command completed' "$work/cli-result.txt"
+echo "PASS: local backupctl authenticated a snapshot request without an argv token"
 curl -fsS --max-time 30 "${auth[@]}" "$base/api/v1/snapshots" >"$work/list.json"
 curl -fsS --max-time 45 -X POST "${auth[@]}" "$base/api/v1/verify" >"$work/verify.json"
 python3 - "$work/list.json" "$work/restore-request.json" <<'PYRESTORE'
