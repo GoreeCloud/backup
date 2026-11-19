@@ -8,6 +8,7 @@ import androidx.compose.ui.platform.LocalContext
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -26,11 +27,17 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URL
 
-private val Iris = Color(0xFF5146C8)
-private val Canvas = Color(0xFFF6F7FB)
-private val Surface = Color.White
-private val TextColor = Color(0xFF1B2030)
-private val Soft = Color(0xFF505B70)
+// Compose reads the active Material3 theme, generated from canonical GC UI tokens.
+private val Iris: Color
+    @Composable get() = MaterialTheme.colorScheme.primary
+private val Canvas: Color
+    @Composable get() = MaterialTheme.colorScheme.background
+private val Surface: Color
+    @Composable get() = MaterialTheme.colorScheme.surface
+private val TextColor: Color
+    @Composable get() = MaterialTheme.colorScheme.onSurface
+private val Soft: Color
+    @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,12 +47,7 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         setContent {
             MaterialTheme(
-                colorScheme = lightColorScheme(
-                    primary = Iris,
-                    surface = Surface,
-                    onSurface = TextColor,
-                    background = Canvas
-                )
+                colorScheme = if (isSystemInDarkTheme()) GoreeCloudUiTheme.Dark else GoreeCloudUiTheme.Light
             ) {
                 BackupScreen()
             }
