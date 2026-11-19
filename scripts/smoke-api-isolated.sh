@@ -20,8 +20,8 @@ trap cleanup EXIT
 
 mkdir -p "$work/source/Documents" "$work/repository" "$work/cache" "$work/logs" "$work/recovery"
 chmod 700 "$work/recovery"
-mkdir -p "$work/source/mobile-ingest"
-chmod 700 "$work/source/mobile-ingest"
+mkdir -p "$work/mobile-ingest"
+chmod 700 "$work/mobile-ingest"
 # Prove mount isolation against a synthetic sentinel outside the writable
 # recovery workspace before invoking Kopia. No existing host files are touched.
 printf 'protected synthetic data
@@ -72,7 +72,11 @@ PY
 export GCB_LISTEN="127.0.0.1:$port"
 export GCB_SOURCE_ROOT="$work/source"
 export GCB_RESTORE_ROOT="$work/recovery"
-export GCB_MOBILE_INGEST_ROOT="$work/source/mobile-ingest"
+export GCB_MOBILE_INGEST_ROOT="$work/mobile-ingest"
+# Private ingest must not overlap source snapshots or contained recovery.
+case "$GCB_MOBILE_INGEST_ROOT" in
+  "$GCB_SOURCE_ROOT"|"$GCB_SOURCE_ROOT/"*) echo 'FAIL: ingest workspace overlaps source allowlist' >&2; exit 1 ;;
+esac
 export GCB_API_TOKEN="$(openssl rand -hex 32)"
 export GCB_KOPIA_BIN="$(command -v kopia)"
 export GCB_RCLONE_BIN="$(command -v rclone || printf '/not/installed/rclone')"
@@ -162,7 +166,7 @@ test "$unauthorized_mobile" = 401 || { echo "mobile endpoint accepted unauthenti
 curl -fsS --max-time 45 -X POST "${auth[@]}" -H 'Content-Type: application/octet-stream' \
   -H 'X-GCB-Filename-B64: cGhvbmUudHh0' -H 'X-GCB-Confirm-Upload: true' \
   --data-binary "@$work/selected-document.txt" "$base/api/v1/mobile/files" >"$work/mobile-result.json"
-python3 - "$work/mobile-result.json" "$work/source/mobile-ingest" <<'PYMOBILE'
+python3 - "$work/mobile-result.json" "$work/mobile-ingest" <<'PYMOBILE'
 import pathlib,json,sys,hashlib
 result=json.load(open(sys.argv[1],encoding='utf-8'))
 assert result.get('backedUp') is True and result.get('name')=='phone.txt',result

@@ -105,6 +105,10 @@ func NewHandler(cfg Config) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
+	if mobileRoot != "" && restoreRoot != "" &&
+		(pathInside(mobileRoot, restoreRoot) || pathInside(restoreRoot, mobileRoot)) {
+		return nil, errors.New("mobile ingest and restore roots must be separate, non-overlapping directories")
+	}
 	h := &Handler{cfg: cfg, root: root, restoreRoot: restoreRoot, mobileRoot: mobileRoot, webDir: webDir, jobGate: make(chan struct{}, 1), remoteGate: make(chan struct{}, 1)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
