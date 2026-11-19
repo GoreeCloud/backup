@@ -38,3 +38,10 @@ The timer is a development-stage single-device scheduling facility: no scheduler
 The client deliberately accepts **only numeric loopback HTTP** and a protected on-disk credential file; it refuses remote/custom hosts and redirects. The client reports generic HTTP statuses and never prints the token. A timer can fail safely when the server is unavailable. Audit journal retention and service-account permissions appropriate to the host's privacy policy.
 
 To stop scheduled snapshots, the operator can disable the timer instance with systemd. Do not delete Kopia repository data merely to disable scheduling.
+
+
+## Optional full-archive integrity verification (separate consent)
+
+`backupctl verify --accept-provider-costs` invokes the existing authenticated, serialized `POST /api/v1/verify` API and refuses to run without the explicit cost-acknowledgement flag. The server asks Kopia to read 100% of archived file contents. This may cause **substantial remote-provider download/egress charges**, particularly for large backups. The client verifies a bounded JSON result and requires a positive number of files read and an explicit success indication; it never treats HTTP errors, redirects, malformed JSON, or zero verified files as success. Even a passing integrity check does not prove file restore correctness.
+
+A separate `goreecloud-backup-verify.service` and `goreecloud-backup-verify.timer` template is supplied. Both are **disabled and uninstalled by default**. The timer's monthly window starts on the first day of each month at 04:00 local server time, with up to three hours of randomized delay; `Persistent=true` may run a missed check after the host restarts. The service explicitly includes `--accept-provider-costs`, so **installing and enabling this unit is an affirmative operator decision to allow repeated provider reads**. Review cloud billing, source/capacity, retention and test results before enabling it. Do not enable this on unmetered assumptions. To stop checks, disable the timer. This template neither changes existing backup schedules nor grants remote server access.

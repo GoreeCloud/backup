@@ -101,6 +101,11 @@ grep -q 'Kopia snapshot command completed' "$work/cli-result.txt"
 echo "PASS: local backupctl authenticated a snapshot request without an argv token"
 curl -fsS --max-time 30 "${auth[@]}" "$base/api/v1/snapshots" >"$work/list.json"
 curl -fsS --max-time 45 -X POST "${auth[@]}" "$base/api/v1/verify" >"$work/verify.json"
+# The opt-in local CLI must acknowledge provider read/transfer cost explicitly.
+GCB_API_URL="$base" GCB_API_TOKEN_FILE="$work/cli-token" \
+  "$work/backupctl" verify --accept-provider-costs >"$work/cli-verify-result.txt"
+grep -q 'Verified ' "$work/cli-verify-result.txt"
+echo "PASS: backupctl completed consented full-file verification through the authenticated local API"
 python3 - "$work/list.json" "$work/restore-request.json" <<'PYRESTORE'
 import json,sys
 data=json.load(open(sys.argv[1],encoding='utf-8'))

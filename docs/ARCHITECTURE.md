@@ -72,3 +72,5 @@ The web app reuses the opt-in `POST /api/v1/mobile/files` endpoint for one user-
 
 
 The browser computes SHA-256 of the user-selected file in the secure browser context and checks it against the server's received-bytes receipt before reporting success. This detects accidental upload corruption or mismatched responses but is **not proof of future repository recoverability** or end-to-end encryption.
+
+The opt-in first-party `backupctl verify --accept-provider-costs` command and separate monthly systemd template invoke the same serialized authenticated server-side Kopia 100%-file verification endpoint. The CLI rejects HTTP redirects, errors, malformed or unconfirmed JSON, and missing consent, and does not independently open any repository or cloud provider. No timer or service is installed by default; repeated remote reads can incur provider fees.

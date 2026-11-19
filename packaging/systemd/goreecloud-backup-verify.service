@@ -1,0 +1,29 @@
+[Unit]
+Description=GoreeCloud Backup explicit full encrypted-file integrity check
+Documentation=https://github.com/GoreeCloud/backup/blob/main/packaging/systemd/README.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=goreecloud-backup
+Group=goreecloud-backup
+LoadCredential=backup-api-token:/etc/goreecloud/backup/api-token
+Environment=GCB_API_TOKEN_FILE=%d/backup-api-token
+Environment=GCB_API_URL=http://127.0.0.1:8787
+# This opt-in unit explicitly authorizes full-content cloud reads.
+ExecStart=/usr/local/bin/goreecloud-backupctl verify --accept-provider-costs --timeout=30m
+TimeoutStartSec=35min
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectHostname=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native

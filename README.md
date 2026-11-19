@@ -151,3 +151,7 @@ The browser computes SHA-256 of the user-selected file in the secure browser con
 ### Missing/truncated encrypted-pack resilience drill
 
 The manual Recovery Integration CI includes `scripts/smoke-incomplete-pack-isolated.sh`, which creates a disposable encrypted Kopia repository, verifies byte-copied local mirror repositories before damage, then simulates both a missing pack and an interrupted/truncated pack. Fresh-cache full-content verification must fail closed in both cases. No external repositories, cloud provider, credentials or user data are accessed. This tests detection of incomplete copies, **not** automatic repair, resumable transport, or production disaster recovery.
+
+### Opt-in local integrity CLI
+
+The first-party Linux `backupctl` now supports `verify --accept-provider-costs` as well as `snapshot --source=Documents`. The new command authenticates over numeric-loopback HTTP using the existing private token file, invokes the server's full Kopia file-read verification, rejects redirects and malformed/unconfirmed responses, and never exposes the bearer token on the command line. A **separate, disabled-by-default** monthly systemd timer template is available in `packaging/systemd/`. Verification can read every cloud-backed file and may incur charges, so the cost acknowledgement is mandatory and the timer must be explicitly installed/enabled. A successful verification is not a substitute for independent restoration testing.

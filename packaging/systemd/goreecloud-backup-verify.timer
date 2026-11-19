@@ -1,0 +1,11 @@
+[Unit]
+Description=Optional monthly full-content GoreeCloud Backup archive verification
+
+[Timer]
+OnCalendar=*-*-01 04:00:00
+RandomizedDelaySec=3h
+Persistent=true
+Unit=goreecloud-backup-verify.service
+
+[Install]
+WantedBy=timers.target
