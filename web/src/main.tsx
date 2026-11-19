@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './gc-tokens.css'
 import './styles.css'
 import { summarizeSnapshots } from './recoveryPoints'
+import { readAPIJSON } from './apiResponse'
 
 type Status = { connected: boolean; message: string }
 type Remotes = { remotes: string[] }
@@ -44,7 +45,6 @@ const validSelectedFile = (file: File) => {
 }
 type RestoreResult = { restored: boolean; snapshotId: string; relativePath: string; note: string }
 type Verification = { verified: boolean; filesRead: number; bytesRead: number; note: string }
-type ServerError = { error?: string }
 const api = async <T,>(path: string, token: string, init: RequestInit = {}): Promise<T> => {
   const response = await fetch(path, {
     ...init,
@@ -52,9 +52,7 @@ const api = async <T,>(path: string, token: string, init: RequestInit = {}): Pro
     cache: 'no-store',
     redirect: 'error'
   })
-  const body = (await response.json()) as T & ServerError
-  if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`)
-  return body
+  return readAPIJSON<T>(response)
 }
 
 function App() {
@@ -217,8 +215,7 @@ function App() {
         cache: 'no-store',
         redirect: 'error'
       })
-      const payload = await response.json() as SelectedFileResult & ServerError
-      if (!response.ok) throw new Error(payload.error || `Selected-file backup failed (HTTP ${response.status})`)
+      const payload = await readAPIJSON<SelectedFileResult>(response)
       if (!payload.backedUp || payload.name !== selectedFile.name || payload.bytes !== selectedFile.size ||
           payload.sha256 !== selectedHash) {
         throw new Error('The server did not confirm the expected file size and SHA-256 fingerprint')
