@@ -17,3 +17,7 @@ web/*.tsbuildinfo
 
 # Locally compiled optional upstream engines
 build/
+
+# Python source-inventory test caches
+__pycache__/
+*.pyc

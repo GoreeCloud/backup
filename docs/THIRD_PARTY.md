@@ -20,3 +20,10 @@ GoreeCloud's first-party Go service, React screens and Kotlin client source are 
 ## Local upstream difference
 
 One Kopia S3 integration-test credential fixture was changed from a credential-shaped literal to unmistakably invalid development placeholders. It is not a production credential configuration or a change to the backup encryption engine. The original publicly committed test value may remain in repository history; do not assume that a current file edit invalidates or revokes leaked credentials. See `third_party/PATCHES.md` and GitHub secret-scanning alert #1.
+
+
+## Go module inventory (development transparency, not an audit)
+
+The manual Recovery Integration GitHub Actions workflow runs `scripts/go_module_sbom.py` after building the pinned Kopia and Rclone engines, and publishes `goreecloud-backup-resolved-go-modules` as a seven-day CycloneDX JSON artifact from the exact workflow commit. The script invokes the trusted Go toolchain's `go list -m -json all` in both attributed upstream source directories, aggregates selected module paths, versions and replacements, and keeps the result sorted and deterministic. The script itself uses Python's standard library and does not execute source packages or arbitrary installers.
+
+**This is a resolved-Go-module inventory, not a verified complete binary dependency or license SBOM.** It does not attest linked packages/build tags, native libraries, licenses, vulnerabilities, provenance signatures, dynamic runtime dependencies, Android Gradle artifacts, npm packages, CI action code, OS packages or cloud-side services. Review the exact CI commit and full Go build/dependency graph, license metadata and applicable security advisories before distribution. Inventory generation fails closed on unresolved module records or errors; a successful run is evidence of recorded versions, not blanket security clearance. The artifact is not published when resolution fails.
