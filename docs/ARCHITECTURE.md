@@ -23,7 +23,7 @@ Kopia creates encrypted snapshots, with deduplication/compression provided by up
 | GET | `/api/v1/remotes` | Authenticated Rclone remote names |
 | POST | `/api/v1/verify` | Serialized full-content read/verification of all Kopia snapshot files; provider transfer costs possible |
 
-Single administrator bearer token: *preview only*. The web application holds the token in volatile component state; Android holds it in volatile Compose state. Neither implements server-based login, multi-user policies or a credential recovery facility. This is not a GoreeCloud Identity integration.
+The API now accepts one required administrator bearer token and an optional independent read-only viewer token (development preview). The viewer token can only access authenticated GET status, snapshot list, configured remote names and redacted capability metadata. Expensive remote provider-capacity queries and all POST mutations remain admin-only. The web application holds the token in volatile component state; Android holds it in volatile Compose state. Neither implements server-based login, per-user identities, account recovery or comprehensive RBAC. This is not yet a GoreeCloud Identity integration.
 
 ## Operations, trust and recovery
 
@@ -77,3 +77,8 @@ The opt-in first-party `backupctl verify --accept-provider-costs` command and se
 
 
 The staging root must be deliberately allocated separately from the source-tree snapshot allowlist. On startup a directory listing must be empty; unexpected previous entries force a configuration error rather than risking accidental plaintext inclusion in later snapshots or automatic deletion of unknown files. This is a preview-level defense against directory overlap, not a substitute for disk encryption or external Kopia retention testing.
+
+
+## Read-only viewer access
+
+When `GCB_VIEW_TOKEN` is configured and distinct from `GCB_API_TOKEN`, the server authenticates single-valued bearer headers and marks matching viewer requests using request-local, unexported context state. It returns `readOnly=true`, disables write/cost capabilities and omits `sourceRoot` from the viewer's GET /api/v1/info response. Any unrecognized token or attempted viewer mutation fails with HTTP 401 and a generic error. Client controls are informational convenience only; authorization is enforced by the Go API on every endpoint. The process launcher removes both secrets from Kopia/Rclone child environments.

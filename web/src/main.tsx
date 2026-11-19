@@ -15,7 +15,10 @@ const formatCapacity = (amount: number, isObjects: boolean) => {
   while (size >= 1024 && index < units.length - 1) { size /= 1024; index++ }
   return `${size.toFixed(index ? 1 : 0)} ${units[index]}`
 }
-type BackupInfo = { restoreEnabled: boolean; mobileUploadEnabled: boolean }
+type BackupInfo = {
+  restoreEnabled: boolean; mobileUploadEnabled: boolean; readOnly: boolean;
+  canSnapshot: boolean; canVerify: boolean; canInspectRemote: boolean
+}
 type SelectedFileResult = { backedUp: boolean; name: string; bytes: number; sha256: string; note: string }
 const maxSelectedBytes = 32 * 1024 * 1024
 const isTrustedOrigin = () => window.location.protocol === 'https:' ||
@@ -65,6 +68,10 @@ function App() {
   const [capacityBusy, setCapacityBusy] = useState(false)
   const [source, setSource] = useState('')
   const [restoreEnabled, setRestoreEnabled] = useState(false)
+  const [readOnly, setReadOnly] = useState(true)
+  const [canSnapshot, setCanSnapshot] = useState(false)
+  const [canVerify, setCanVerify] = useState(false)
+  const [canInspectRemote, setCanInspectRemote] = useState(false)
   const [selectedBackupEnabled, setSelectedBackupEnabled] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedFileConsent, setSelectedFileConsent] = useState(false)
@@ -93,8 +100,14 @@ function App() {
       setRemotes(destinations.status === 'fulfilled' ? destinations.value.remotes : [])
       setCapacity(null)
       setCapacityError('')
-      setRestoreEnabled(info.status === 'fulfilled' && Boolean(info.value.restoreEnabled))
-      setSelectedBackupEnabled(info.status === 'fulfilled' && Boolean(info.value.mobileUploadEnabled))
+      const capabilities = info.status === 'fulfilled' ? info.value : null
+      // An unavailable capability response fails closed for privileged UI controls.
+      setReadOnly(capabilities?.readOnly ?? true)
+      setCanSnapshot(Boolean(capabilities?.canSnapshot))
+      setCanVerify(Boolean(capabilities?.canVerify))
+      setCanInspectRemote(Boolean(capabilities?.canInspectRemote))
+      setRestoreEnabled(Boolean(capabilities?.restoreEnabled))
+      setSelectedBackupEnabled(Boolean(capabilities?.mobileUploadEnabled))
       if (shots.status === 'rejected') setLastAction('Snapshot list unavailable; check Kopia connection')
     } catch (cause) {
       setStatus(null)
@@ -113,6 +126,7 @@ function App() {
   }
   const create = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!canSnapshot) return
     if (!source.trim()) { setError('Choose a directory below the configured source root'); return }
     setBusy(true)
     setError('')
@@ -129,7 +143,7 @@ function App() {
   }
 
   const verify = async () => {
-    if (!verifyConsent || !status?.connected || busy) return
+    if (!canVerify || !verifyConsent || !status?.connected || busy) return
     setBusy(true)
     setError('')
     setLastAction('Reading and verifying all snapshot file contents. This can be slow and consume storage-provider bandwidth.')
@@ -165,7 +179,7 @@ function App() {
   }
 
   const inspectRemote = async (remote: string) => {
-    if (!token || capacityBusy || busy) return
+    if (!token || !canInspectRemote || capacityBusy || busy) return
     setCapacityBusy(true)
     setCapacity(null)
     setCapacityError('')
@@ -247,15 +261,16 @@ function App() {
           <section className="panel connect">
             <div className="panel-icon" aria-hidden="true">⌁</div>
             <h2>Connect to your backup service</h2>
-            <p>Enter the access token configured on your self-hosted GoreeCloud Backup server. It is kept only in this tab's memory.</p>
+            <p>Enter your full-access or optional read-only token configured on your self-hosted GoreeCloud Backup server. It is kept only in this tab's memory.</p>
             <form onSubmit={connect} className="connect-form">
               <label htmlFor="token">Access token</label>
-              <input id="token" type="password" autoComplete="off" minLength={32} value={draftToken} onChange={e => setDraftToken(e.target.value)} placeholder="Your GCB_API_TOKEN" required />
+              <input id="token" type="password" autoComplete="off" minLength={32} value={draftToken} onChange={e => setDraftToken(e.target.value)} placeholder="Your configured access token" required />
               <button type="submit" disabled={busy}>{busy ? 'Connecting…' : 'Connect securely'}</button>
             </form>
           </section>
         ) : (
           <>
+            {readOnly && <p className="hint" role="status">Read-only session: snapshot creation, restoration, uploads, archive verification and remote-provider capacity calls are unavailable.</p>}
             <div className="metrics">
               <section className="metric"><span>Repository</span><strong>{status ? (status.connected ? 'Connected' : 'Unconfigured') : 'Checking…'}</strong><small>Kopia engine</small></section>
               <section className="metric"><span>Snapshots visible</span><strong>{snapshots.length}</strong><small>Current repository listing</small></section>
@@ -269,7 +284,7 @@ function App() {
             <section className="panel" id="restore">
               <div className="eyebrow">SAFE RECOVERY</div><h2>Contained restore workspace</h2>
               <p className="subtle">Restore an existing snapshot to a new, private directory on the server. The destination is allocated automatically, separate from the configured source root; the original files are not overwritten.</p>
-              {!restoreEnabled ? <p className="hint">Restoration is disabled until the server operator configures a separate, private GCB_RESTORE_ROOT directory.</p> :
+              {!restoreEnabled ? <p className="hint">{readOnly ? 'This access token cannot restore files.' : 'Restoration is disabled until the server operator configures a separate, private GCB_RESTORE_ROOT directory.'}</p> :
                 <form onSubmit={restore} className="restore-form">
                   <label htmlFor="restoreSnapshot">Recovery point</label>
                   <select id="restoreSnapshot" value={restoreId} onChange={e => setRestoreId(e.target.value)} disabled={busy || snapshotIds.length === 0} required>
@@ -285,14 +300,14 @@ function App() {
               <div className="eyebrow">NEW RECOVERY POINT</div><h2>Create a snapshot</h2>
               <p className="subtle">Enter an existing subdirectory of the source root configured on the server. Symlink escapes and parent traversal are rejected.</p>
               <form onSubmit={create} className="create-form">
-                <div><label htmlFor="source">Source directory (relative)</label><input id="source" value={source} onChange={e => setSource(e.target.value)} placeholder="Documents" required disabled={busy} /></div>
-                <button type="submit" disabled={busy || !status?.connected}>{busy ? 'Working…' : 'Back up now'}</button>
+                <div><label htmlFor="source">Source directory (relative)</label><input id="source" value={source} onChange={e => setSource(e.target.value)} placeholder="Documents" required disabled={busy || !canSnapshot} /></div>
+                <button type="submit" disabled={busy || !status?.connected || !canSnapshot}>{busy ? 'Working…' : 'Back up now'}</button>
               </form>
             </section>
             <section className="panel" id="file-backup">
               <div className="eyebrow">USER-SELECTED BACKUP</div><h2>Back up one file from this device</h2>
               <p className="subtle">Choose one document, explicitly approve its transfer, and let your configured server create an encrypted Kopia snapshot. No automatic file access or background upload occurs. Maximum 32 MiB.</p>
-              {!selectedBackupEnabled ? <p className="hint">This capability is disabled until the operator configures a private GCB_MOBILE_INGEST_ROOT directory on the backup server.</p> :
+              {!selectedBackupEnabled ? <p className="hint">{readOnly ? 'This access token cannot upload files.' : 'This capability is disabled until the operator configures a private GCB_MOBILE_INGEST_ROOT directory on the backup server.'}</p> :
                 <form onSubmit={backupSelectedFile} className="selected-file-form">
                   <label htmlFor="selectedBackupFile">Document to back up</label>
                   <input id="selectedBackupFile" ref={fileInput} type="file" disabled={busy} onChange={e => { setSelectedFile(e.target.files?.[0] || null); setSelectedFileConsent(false) }} />
@@ -305,13 +320,13 @@ function App() {
             <section className="panel" id="verification">
               <div className="eyebrow">INTEGRITY CHECK</div><h2>Verify archived data</h2>
               <p className="subtle">Ask Kopia to read and verify 100% of archived file contents. This may take a long time and incur provider transfer charges. It is not a substitute for an independent restoration drill.</p>
-              <label className="verify-consent"><input type="checkbox" checked={verifyConsent} onChange={e => setVerifyConsent(e.target.checked)} disabled={busy} /> I understand this operation may read all cloud-stored backup data and incur costs.</label>
-              <div className="verification-action"><button type="button" onClick={verify} disabled={busy || !verifyConsent || !status?.connected}>{busy ? 'Operation in progress…' : 'Verify all snapshot files'}</button></div>
+              <label className="verify-consent"><input type="checkbox" checked={verifyConsent} onChange={e => setVerifyConsent(e.target.checked)} disabled={busy || !canVerify} /> I understand this operation may read all cloud-stored backup data and incur costs.</label>
+              <div className="verification-action"><button type="button" onClick={verify} disabled={busy || !verifyConsent || !status?.connected || !canVerify}>{busy ? 'Operation in progress…' : 'Verify all snapshot files'}</button></div>
               {lastVerification && <p className="hint" role="status">Most recent verification in this browser session: {lastVerification.filesRead} files, {lastVerification.bytesRead.toLocaleString()} bytes read. Successful verification does not prove restore readiness.</p>}
             </section>
             <section className="panel" id="destinations">
               <div className="eyebrow">STORAGE CONNECTIONS</div><h2>Rclone remotes</h2>
-              {remotes.length ? <div className="remote-list">{remotes.map(name => <div className="remote-line" key={name}><span className="chip">{name}</span><button type="button" className="secondary" disabled={busy || capacityBusy} onClick={() => inspectRemote(name)}>Check capacity</button></div>)}</div> : <p className="subtle">No Rclone remotes are available. Configure destinations on the server.</p>}
+              {remotes.length ? <div className="remote-list">{remotes.map(name => <div className="remote-line" key={name}><span className="chip">{name}</span><button type="button" className="secondary" disabled={busy || capacityBusy || !canInspectRemote} onClick={() => inspectRemote(name)}>Check capacity</button></div>)}</div> : <p className="subtle">No Rclone remotes are available. Configure destinations on the server.</p>}
               {capacityBusy && <p role="status" className="hint">Contacting the selected remote provider…</p>}
               {capacityError && <p role="alert" className="error">{capacityError}</p>}
               {capacity && <div className="remote-capacity" role="status"><strong>Provider-reported capacity for {capacity.remote}</strong><dl>{Object.entries(capacity.quota).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{formatCapacity(value as number, key === 'objects')}</dd></div>)}</dl><p className="hint">{capacity.note}</p></div>}

@@ -78,6 +78,7 @@ case "$GCB_MOBILE_INGEST_ROOT" in
   "$GCB_SOURCE_ROOT"|"$GCB_SOURCE_ROOT/"*) echo 'FAIL: ingest workspace overlaps source allowlist' >&2; exit 1 ;;
 esac
 export GCB_API_TOKEN="$(openssl rand -hex 32)"
+export GCB_VIEW_TOKEN="$(openssl rand -hex 32)"
 export GCB_KOPIA_BIN="$(command -v kopia)"
 export GCB_RCLONE_BIN="$(command -v rclone || printf '/not/installed/rclone')"
 
@@ -94,6 +95,29 @@ auth=(-H "Authorization: Bearer $GCB_API_TOKEN")
 
 unauth_status="$(curl -sS -o /dev/null -w '%{http_code}' "$base/api/v1/status")"
 test "$unauth_status" = 401 || { echo "unauthenticated request accepted: $unauth_status" >&2; exit 1; }
+
+# A separate synthetic viewer token can inspect state but cannot change the
+# repository or contact cost-bearing remote provider APIs.
+viewer=(-H "Authorization: Bearer $GCB_VIEW_TOKEN")
+curl -fsS --max-time 20 "${viewer[@]}" "$base/api/v1/info" >"$work/viewer-info.json"
+curl -fsS --max-time 20 "${viewer[@]}" "$base/api/v1/status" >"$work/viewer-status.json"
+python3 - "$work/viewer-info.json" <<'PYVIEWERINFO'
+import json,sys
+data=json.load(open(sys.argv[1],encoding='utf-8'))
+assert data['readOnly'] is True
+assert data['canVerify'] is False and data['canSnapshot'] is False and data['canInspectRemote'] is False
+assert data['restoreEnabled'] is False and data['mobileUploadEnabled'] is False
+assert 'sourceRoot' not in data,'a read-only user received the host source root'
+print('PASS: read-only API view token returns sanitized capability metadata')
+PYVIEWERINFO
+for path in snapshots verify restore mobile/files;do
+  viewer_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 -X POST "${viewer[@]}" "$base/api/v1/$path")"
+  test "$viewer_status" = 401 || { echo "FAIL: viewer token initiated privileged $path: $viewer_status" >&2;exit 1; }
+done
+viewer_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "${viewer[@]}" "$base/api/v1/remotes/about?remote=example%3A")"
+test "$viewer_status" = 401 || { echo "FAIL: viewer token accessed provider capacity: $viewer_status" >&2; exit 1; }
+echo 'PASS: viewer token cannot initiate snapshots, restores, uploads, verification or provider queries'
+
 
 curl -fsS --max-time 40 -X POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d '{"source":"Documents"}' "$base/api/v1/snapshots" >"$work/created.json"
