@@ -69,3 +69,5 @@ A stage is not complete solely because its source files exist. No release date h
 - Advance the backup-specific recovery timeline with accessible real-browser/mobile viewport acceptance, snapshot age/retention summaries grounded in server data, safe search/filter by anonymized label, and independent recovery success evidence. Never depict a listed backup as verified or recoverable without an actual restore drill.
 
 - Expand browser-focused robustness coverage into real-browser integration, aborting expensive requests on navigation or disconnect, meaningful progress/cancellation for lengthy operations, server-side rate limiting and privacy-preserving structured error codes. Keep all current bearer tokens transient and never display untrusted raw error bodies.
+
+- Extend the read-only backup freshness gate with verified retention-window coverage, expected source-set checks, separately evidenced verification/restore results, trusted monitoring timestamps, and configured alert delivery. Avoid calling metadata age an integrity or recovery SLA.

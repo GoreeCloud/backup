@@ -141,3 +141,7 @@ The React UI reduces raw Kopia snapshot-list responses through a pure TypeScript
 ## Bounded API JSON client
 
 The web application routes GET status/info/snapshot-list/remotes and explicit POST snapshot/verification/restore/selected-file confirmation through a pure TypeScript JSON parser. It checks response status, redirect state and application/json Content-Type; reads body chunks with a total 2 MiB bound even without a Content-Length header; rejects invalid UTF-8 and malformed JSON; and returns only a generic numeric HTTP status for failed requests. Small Node-standard-library unit tests run in the existing web CI job. The parser is not an authorization boundary: server tokens, sandboxing and consent controls remain independent.
+
+## Optional latest-snapshot freshness signal
+
+The existing authenticated loopback `backupctl doctor` command can receive `--max-age` as an optional duration (one minute to 365 days). It makes its existing three GET-only requests, derives a valid newest UTC timestamp from up to 100 visible snapshot metadata records regardless of listing order and compares against the operator's local clock. Missing/invalid dates, stale data and timestamps more than five minutes in the future fail the opted-in readiness gate. Without `--max-age`, availability behavior remains unchanged and no freshness claim is made. It does not run Kopia full-file verification, a restore or other mutations.
