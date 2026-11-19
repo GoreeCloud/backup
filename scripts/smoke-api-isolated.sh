@@ -128,6 +128,22 @@ GCB_API_URL="$base" GCB_API_TOKEN_FILE="$work/cli-token" "$work/backupctl" snaps
 grep -q 'Kopia snapshot command completed' "$work/cli-result.txt"
 echo "PASS: local backupctl authenticated a snapshot request without an argv token"
 curl -fsS --max-time 30 "${auth[@]}" "$base/api/v1/snapshots" >"$work/list.json"
+printf '%s' "$GCB_VIEW_TOKEN" >"$work/viewer-cli-token"
+chmod 600 "$work/viewer-cli-token"
+GCB_API_URL="$base" GCB_API_TOKEN_FILE="$work/viewer-cli-token"   "$work/backupctl" list --limit=3 >"$work/cli-viewer-list.txt"
+python3 - "$work/cli-viewer-list.txt" "$work/source" <<'PYCLILIST'
+import pathlib,sys,re
+content=pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+lines=content.strip().splitlines()
+assert lines and lines[0].startswith("SNAPSHOT ID"),content
+assert len(lines)>=2,content
+for line in lines[1:]:
+    identifier,stamp,label=line.split("\t",2)
+    assert re.fullmatch(r"[A-Za-z0-9_-]{8,128}",identifier),identifier
+    assert label and '/' not in label and chr(92) not in label,label
+assert sys.argv[2] not in content,"local CLI leaked absolute source root"
+print("PASS: private viewer token lists sanitized snapshots through local backupctl")
+PYCLILIST
 curl -fsS --max-time 30 "${viewer[@]}" "$base/api/v1/snapshots" >"$work/viewer-snapshots.json"
 python3 - "$work/list.json" "$work/viewer-snapshots.json" "$work/source" <<'PYVIEWERSNAP'
 import json,sys

@@ -92,3 +92,6 @@ The viewer token's authenticated `GET /api/v1/snapshots` response is a strict re
 ## Rclone interoperability acceptance (synthetic local storage)
 
 The manual CI synthetic mirror drill builds both attributed source engines and uses Rclone `copy` and `check` only on unrelated temporary local directories: an encrypted Kopia filesystem repository and a separate mirror. A fresh Kopia connection with its own config and empty cache verifies archived file contents and independently restores a snapshot from the mirror, comparing its bytes and symlinks against synthetic source fixtures. The Rclone config is forcibly empty and independent of host provider settings. The test does **not** imply that a cloud provider is configured, a background sync engine is available, or that a mirror created during concurrent repository writes is transactionally consistent.
+
+
+The local `backupctl list` client is read-only and limits the response body to 2 MiB. It uses the existing private token file and loopback-only, no-proxy, no-redirect HTTP client. Snapshot records are parsed into an allowlisted struct; stdout shows only sanitized ID, UTC timestamp and folder leaf, never raw upstream host, username, tag, object-root or absolute path data. The optional viewer token is sufficient for this command.
