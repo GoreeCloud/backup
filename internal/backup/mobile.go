@@ -33,12 +33,26 @@ func validateMobileRoot(sourceRoot, configured string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("mobile ingest root: %w", err)
 	}
-	if resolved != filepath.Clean(configured) || resolved == sourceRoot || !pathInside(sourceRoot, resolved) {
-		return "", errors.New("mobile ingest root must be a real, separate directory inside the source allowlist")
+	// Uploads contain plaintext until Kopia has created the encrypted
+	// snapshot. Keeping staging anywhere inside the normal source tree could
+	// accidentally archive plaintext via a broad source snapshot or a crash.
+	if resolved != filepath.Clean(configured) || resolved == string(filepath.Separator) ||
+		pathInside(sourceRoot, resolved) || pathInside(resolved, sourceRoot) {
+		return "", errors.New("mobile ingest root must be a real, separate, non-overlapping directory outside the source allowlist")
 	}
 	info, err := os.Lstat(resolved)
 	if err != nil || !info.IsDir() || info.Mode().Perm()&0077 != 0 {
 		return "", errors.New("mobile ingest root must be an existing private directory (0700)")
+	}
+	// A previous server crash could have left original plaintext bytes.
+	// Never silently delete or ignore that data. The operator must inspect
+	// and safely clear the private directory before starting the service.
+	entries, err := os.ReadDir(resolved)
+	if err != nil {
+		return "", errors.New("cannot inspect the private mobile ingest directory")
+	}
+	if len(entries) != 0 {
+		return "", errors.New("mobile ingest root is not empty; operator must review leftover staging data before startup")
 	}
 	return resolved, nil
 }
@@ -92,6 +106,14 @@ func (h *Handler) mobileFile(w http.ResponseWriter, r *http.Request) {
 	current, err := os.Lstat(h.mobileRoot)
 	if err != nil || !current.IsDir() || current.Mode().Perm()&0077 != 0 {
 		writeErr(w, http.StatusServiceUnavailable, "mobile ingest workspace permissions changed")
+		return
+	}
+	// Check again for leftover files before each upload. The process-local
+	// job gate serializes legitimate writes, so unexpected directory entries
+	// indicate another writer or crash residue that requires operator review.
+	entries, err := os.ReadDir(h.mobileRoot)
+	if err != nil || len(entries) != 0 {
+		writeErr(w, http.StatusServiceUnavailable, "mobile ingest root contains unexpected files; operator inspection required")
 		return
 	}
 

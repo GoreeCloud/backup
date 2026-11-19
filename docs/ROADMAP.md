@@ -36,3 +36,6 @@ A stage is not complete solely because its source files exist. No release date h
 ### Software supply chain
 
 - Expand the implemented resolved-Go-module inventory into a complete, independently checked binary dependency/permissions/licensing/advisory/SBOM audit covering pinned Go engines, Android/Gradle, web/npm, operating-system libraries, CI actions, and distribution artifacts.
+
+
+- The selected-file plaintext staging root is now deliberately separate from the source/restore roots, with fail-closed orphan detection. Future work: crash-safe per-upload journaling, optional encrypted scratch storage, auditing, quota controls and lifecycle maintenance with explicit retention policy.

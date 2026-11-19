@@ -33,3 +33,5 @@ Synthetic resilience coverage: source-built Kopia encrypted-pack tampering, miss
 
 
 Credential resilience test: a wrong passphrase on a clean copied encrypted repository must be rejected without hanging, and a fresh correct passphrase must still unlock and verify the archive. This is not lost-key recovery.
+
+**Private ingestion boundary:** New Android and browser selected-file backup setups must keep temporary plaintext under a dedicated, empty private staging root outside normal backup source and restore trees. Startup rejects crash leftovers for operator review instead of automatically erasing them. Existing in-source preview configurations require manual migration before the endpoint can be enabled.

@@ -16,14 +16,18 @@ import (
 
 func TestMobileIngestRootConstraints(t *testing.T) {
 	root := t.TempDir()
-	private := filepath.Join(root, "mobile")
+	private := filepath.Join(t.TempDir(), "mobile")
 	if err := os.Mkdir(private, 0700); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := validateMobileRoot(root, private); err != nil {
 		t.Fatal(err)
 	}
-	for _, unsafe := range []string{root, t.TempDir(), "../mobile", "/not/existing"} {
+	withinSource := filepath.Join(root, "mobile")
+	if err := os.Mkdir(withinSource, 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, unsafe := range []string{root, withinSource, filepath.Dir(root), "../mobile", "/not/existing", string(filepath.Separator)} {
 		if _, err := validateMobileRoot(root, unsafe); err == nil {
 			t.Errorf("allowed ingest root %s", unsafe)
 		}
@@ -84,7 +88,7 @@ func TestMobileUploadRequiresPrivateRootAndAuth(t *testing.T) {
 
 func TestMobileUploadInvalidRequestsDoNotStage(t *testing.T) {
 	root := t.TempDir()
-	inbox := filepath.Join(root, "mobile")
+	inbox := filepath.Join(t.TempDir(), "mobile")
 	if err := os.Mkdir(inbox, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +126,7 @@ func TestMobileUploadInvalidRequestsDoNotStage(t *testing.T) {
 
 func TestMobileUploadFailedSnapshotCleansPlaintext(t *testing.T) {
 	root := t.TempDir()
-	inbox := filepath.Join(root, "private")
+	inbox := filepath.Join(t.TempDir(), "private")
 	if err := os.Mkdir(inbox, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +155,7 @@ func TestMobileUploadReturnsVerifiedByteCountAndSHA256(t *testing.T) {
 		t.Skip("synthetic successful CLI uses /bin/true")
 	}
 	root := t.TempDir()
-	inbox := filepath.Join(root, "mobile")
+	inbox := filepath.Join(t.TempDir(), "mobile")
 	if err := os.Mkdir(inbox, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -186,5 +190,106 @@ func TestMobileUploadReturnsVerifiedByteCountAndSHA256(t *testing.T) {
 	entries, err := os.ReadDir(inbox)
 	if err != nil || len(entries) != 0 {
 		t.Fatalf("staged plaintext not removed: %v %v", entries, err)
+	}
+}
+
+// A killed process must never cause silently abandoned plaintext files to
+// enter another source snapshot or disappear without operator inspection.
+func TestMobileIngestStartupFailsClosedOnCrashLeftovers(t *testing.T) {
+	root := t.TempDir()
+	inbox := filepath.Join(t.TempDir(), "ingest")
+	if err := os.Mkdir(inbox, 0700); err != nil {
+		t.Fatal(err)
+	}
+	artifact := filepath.Join(inbox, "mobile-orphaned")
+	if err := os.Mkdir(artifact, 0700); err != nil {
+		t.Fatal(err)
+	}
+	staged := filepath.Join(artifact, "private.txt")
+	if err := os.WriteFile(staged, []byte("disposable orphaned content"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := NewHandler(Config{Token: testToken, SourceRoot: root, MobileIngestRoot: inbox})
+	if err == nil || !strings.Contains(err.Error(), "not empty") {
+		t.Fatalf("accepted leftover plaintext staging: %v", err)
+	}
+	data, err := os.ReadFile(staged)
+	if err != nil || string(data) != "disposable orphaned content" {
+		t.Fatalf("orphaned staging should remain for operator review: %v", err)
+	}
+}
+
+func TestMobileIngestAndRestoreRootsCannotOverlap(t *testing.T) {
+	source := t.TempDir()
+	private := t.TempDir()
+	if err := os.Chmod(private, 0700); err != nil {
+		t.Fatal(err)
+	}
+	nested := filepath.Join(private, "restore")
+	if err := os.Mkdir(nested, 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, pair := range [][2]string{{private, private}, {private, nested}, {nested, private}} {
+		_, err := NewHandler(Config{Token: testToken, SourceRoot: source, RestoreRoot: pair[0], MobileIngestRoot: pair[1]})
+		if err == nil {
+			t.Errorf("unsafe restore/staging overlap accepted: %v -> %v", pair[0], pair[1])
+		}
+	}
+	// Here both directories are individually valid and the overlap guard
+	// itself must reject the shared root, not just an orphaned-staging check.
+	if err := os.Remove(nested); err != nil {
+		t.Fatal(err)
+	}
+	_, err := NewHandler(Config{Token: testToken, SourceRoot: source, RestoreRoot: private, MobileIngestRoot: private})
+	if err == nil || !strings.Contains(err.Error(), "non-overlapping") {
+		t.Fatalf("shared empty restore/upload directory was accepted: %v", err)
+	}
+}
+
+func TestMobileIngestRejectsSymlinkAlias(t *testing.T) {
+	source := t.TempDir()
+	actual := t.TempDir()
+	alias := filepath.Join(t.TempDir(), "ingest-link")
+	if err := os.Symlink(actual, alias); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validateMobileRoot(source, alias); err == nil {
+		t.Fatal("symlink alias accepted as plaintext ingest root")
+	}
+}
+
+// An old plaintext file appearing after service startup must not be
+// overwritten, folded into a new request or purged without operator review.
+func TestMobileUploadRefusesUnexpectedRuntimeStaging(t *testing.T) {
+	root := t.TempDir()
+	inbox := filepath.Join(t.TempDir(), "private-ingest")
+	if err := os.Mkdir(inbox, 0700); err != nil {
+		t.Fatal(err)
+	}
+	h, err := NewHandler(Config{Token: testToken, SourceRoot: root, MobileIngestRoot: inbox, KopiaBin: "/bin/true"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	orphan := filepath.Join(inbox, "orphan.txt")
+	if err := os.WriteFile(orphan, []byte("synthetic crash residue"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest("POST", "/api/v1/mobile/files", strings.NewReader("new file"))
+	r.Header.Set("Authorization", "Bearer "+testToken)
+	r.Header.Set("X-GCB-Filename-B64", base64.RawURLEncoding.EncodeToString([]byte("new.txt")))
+	r.Header.Set("X-GCB-Confirm-Upload", "true")
+	r.Header.Set("Content-Type", "application/octet-stream")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("accepted upload into dirty staging: %d, %s", w.Code, w.Body.String())
+	}
+	data, err := os.ReadFile(orphan)
+	if err != nil || string(data) != "synthetic crash residue" {
+		t.Fatalf("orphaned staging should remain for operator review: %v", err)
+	}
+	entries, err := os.ReadDir(inbox)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("unexpected staging entries: %v, %v", entries, err)
 	}
 }
