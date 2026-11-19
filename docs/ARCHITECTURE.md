@@ -113,3 +113,7 @@ A second independent manual CI lane serves an entirely disposable local director
 ## Metadata recovery contract
 
 The isolated Linux archive-restore lane verifies file contents, private file/directory permission bits, modification times and symlink targets. It also measures whether original shared-inode hardlinks remain shared after restoration, currently reporting a known local-build loss of hardlink identity without failing a byte-correct restore. The control service does not expose a hardlink repair operation, nor does it claim owner/group, ACL/xattr, sparse-block or special-device preservation. Detailed recovery acceptance for workloads relying on those features must be established before production reliance.
+
+## Experimental loopback S3 interoperability
+
+The manual recovery matrix includes a disposable authenticated HTTP loopback server implemented by pinned Rclone's experimental serve s3 command. A separate Rclone S3 client uses one-use Signature V4 credentials and a path-style test bucket; an incorrect signature is rejected. The client transfers a completed encrypted Kopia repository through S3, downloads it separately and checks the SHA-256 of each encrypted object. With the S3 listener shut down, a fresh Kopia configuration verifies the archived content and restores it. This does not validate production cloud authentication, HTTPS, object versioning, eventual consistency, object locking, storage costs or provider durability.

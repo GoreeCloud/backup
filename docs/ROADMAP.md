@@ -55,3 +55,5 @@ A stage is not complete solely because its source files exist. No release date h
 - Eliminate the remaining external Kopia path lookup race using a verified descriptor-preserving source handoff, or enforce a stronger per-job OS sandbox, dedicated UID and immutable parent paths. Validate hard process crashes, partial disk failures and orphaned plaintext management before multiuser deployment.
 
 - Beyond the passing disposable local and loopback SFTP Kopia/Rclone recovery drills, test controlled S3-compatible object stores, provider quotas, interrupted and retried transfers, real offsite credentials, per-user permissions, untrusted remote host keys, immutable repository mirrors and consistency-safe checkpoints. Never delete the only recoverable repository.
+
+- Extend local, SFTP-loopback and experimental S3-loopback recovery tests to independently provisioned, disposable S3-compatible providers; exercise timeouts, multipart failure, quotas, versioning, immutable retention and consistent copy checkpoints before enabling remote automation.
