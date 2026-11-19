@@ -58,3 +58,7 @@ The optional quota endpoint uses fixed Rclone CLI arguments and accepts only a r
 ## Encrypted-pack corruption regression
 
 `smoke-corruption-isolated.sh` creates a newly provisioned local Kopia repository under `mktemp`, snapshots deterministic synthetic bytes, validates the healthy repository, then flips one byte within its largest non-configuration encrypted pack. It switches to a fresh cache before verifying that tampering is detected. The test is included only in the **manually dispatched** recovery workflow to avoid unexpected CI costs. No real repositories or upstream credential material are accessed or modified. Passing this test does not prove recoverability after malicious modification of every object, deletion, interrupted writes or remote-provider corruption.
+
+## Explicit loopback-only listener
+
+The unencrypted Go API never binds directly to a wildcard, public, or LAN address. The `GCB_LISTEN` startup setting accepts only numeric `127.0.0.1:PORT` or `[::1]:PORT`, with a valid port from 1 to 65535; `ConfigFromEnv` and `NewHandler` reject invalid nonempty addresses. Use an independently hardened TLS proxy/private tunnel for remote clients. Plaintext HTTP exposure to a LAN or public internet is unsupported. This safeguard is not a TLS proxy, authentication rate limiter or multi-user Identity integration.

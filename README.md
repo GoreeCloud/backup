@@ -105,7 +105,7 @@ cd web && npm ci && npm run build
 # Android: cd android && ./gradlew :app:assembleDebug (SDK 35)
 ```
 
-The API binds to **127.0.0.1** by default and refuses startup without a 32+ byte bearer token and an existing source root. For Android, use trusted HTTPS with authentication via an independently configured, access-controlled proxy or private network. **Do not expose plaintext HTTP on public networks.** See [Security](docs/SECURITY.md) and [Architecture](docs/ARCHITECTURE.md). A CI build does not prove restore reliability. Perform a nonproduction restore drill before depending on real data.
+The API **requires** a numeric loopback bind address (`127.0.0.1` or `[::1]`) and refuses wildcard/public binding even when `GCB_LISTEN` is overridden and refuses startup without a 32+ byte bearer token and an existing source root. For Android, use trusted HTTPS with authentication via an independently configured, access-controlled proxy or private network. **Do not expose plaintext HTTP on public networks.** See [Security](docs/SECURITY.md) and [Architecture](docs/ARCHITECTURE.md). A CI build does not prove restore reliability. Perform a nonproduction restore drill before depending on real data.
 
 ## Open source and attribution
 
