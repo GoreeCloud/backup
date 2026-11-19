@@ -63,3 +63,5 @@ A stage is not complete solely because its source files exist. No release date h
 - Extend read-only local preflight into opt-in documented operational acceptance gates that incorporate verified offsite location, retention policy, key-recovery rehearsal, last successful snapshot age, meaningful logging and independent byte-for-byte restore evidence. Do not conflate metadata availability with recoverability.
 
 - Extend the optional dual-runner Linux AMD64 hash comparison into signed, verifiable build attestations, repeat builds across independent runner providers, reproducibility tests for Android/web and additional OS/architecture targets, with complete dependency licensing and vulnerability triage before stable distribution.
+
+- Extend secure local credential handling beyond pinned per-invocation token reads: harden configuration parent ownership and unprivileged service UIDs, implement auditable token rotation/revocation and purpose-scoped native pairing through GoreeCloud Identity and GoreeShield with Wardveil protections.
