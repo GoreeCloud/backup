@@ -58,6 +58,17 @@ jobs:
           path: build/sbom/go-modules.cdx.json
           if-no-files-found: error
           retention-days: 7
+      - name: Record unsigned binary hashes and compiled Go module metadata
+        run: |
+          python3 scripts/build_provenance.py --output build/provenance/engines.json
+          python3 scripts/build_provenance.py --output build/provenance/engines.json --check
+      - name: Publish unsigned compiled-binary evidence (7 days)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: goreecloud-backup-compiled-binary-evidence
+          path: build/provenance/engines.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Isolated encrypted archive, deduplication and restore
         run: PATH="$PWD/build/bin:$PATH" ./scripts/smoke-isolated.sh
       - name: Isolated Linux metadata restore acceptance and hardlink-limit evidence

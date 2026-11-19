@@ -64,3 +64,5 @@ Credential resilience test: a wrong passphrase on a clean copied encrypted repos
 **Synthetic Linux metadata acceptance:** Automated Kopia restore checks byte-for-byte contents, private permissions, mtime, Unicode paths and symlink target. A deliberately hardlinked source pair is restored with correct data but (in the tested build) separate inodes; the runner prints a limitation rather than claiming hardlink preservation.
 
 **Experimental S3 recovery regression:** Pinned Rclone serves an authenticated, temporary loopback S3 endpoint, rejects a bad SigV4 secret, copies and downloads encrypted Kopia objects, and passes independent SHA-256 and offline Kopia verify/restore tests. No production S3 provider or live mirroring is tested.
+
+**Compiled-binary metadata evidence:** Manual recovery CI publishes a short-lived, unsigned manifest linking both source-built Kopia/Rclone executable SHA-256 hashes with the checked-out Git commit, source manifest/build script hashes and modules recorded in Go binary build metadata. This is not release signing or a reproducible-build proof.
