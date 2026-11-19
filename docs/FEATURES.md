@@ -30,3 +30,6 @@ Source and tests establish development capabilities, not production backup relia
 **Web selected-file backup:** The React workspace now offers the same consent-gated, single-file foreground upload as the Android system-picker client when the private server ingress is configured. Source selection remains explicit; automatic browser directory access, background synchronization and client-side end-to-end encryption are not claimed.
 
 Synthetic resilience coverage: source-built Kopia encrypted-pack tampering, missing-pack mirror, truncated-pack mirror, duplicate snapshots, Unicode paths, symlinks and byte-for-byte contained restoration. Real provider interruption and live disaster-recovery validation remain outstanding.
+
+
+Credential resilience test: a wrong passphrase on a clean copied encrypted repository must be rejected without hanging, and a fresh correct passphrase must still unlock and verify the archive. This is not lost-key recovery.

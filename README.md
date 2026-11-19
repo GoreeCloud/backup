@@ -155,3 +155,7 @@ The manual Recovery Integration CI includes `scripts/smoke-incomplete-pack-isola
 ### Opt-in local integrity CLI
 
 The first-party Linux `backupctl` now supports `verify --accept-provider-costs` as well as `snapshot --source=Documents`. The new command authenticates over numeric-loopback HTTP using the existing private token file, invokes the server's full Kopia file-read verification, rejects redirects and malformed/unconfirmed responses, and never exposes the bearer token on the command line. A **separate, disabled-by-default** monthly systemd timer template is available in `packaging/systemd/`. Verification can read every cloud-backed file and may incur charges, so the cost acknowledgement is mandatory and the timer must be explicitly installed/enabled. A successful verification is not a substitute for independent restoration testing.
+
+### Lost repository passphrase regression (synthetic only)
+
+`scripts/smoke-lost-credential-isolated.sh` creates a disposable encrypted Kopia repository, verifies a copied mirror with the correct synthetic password, rejects a new connection with an intentionally wrong passphrase without a prompt or indefinite timeout, and verifies the same mirror again using a fresh correct connection. Manual Recovery Integration CI runs this alongside missing/truncated pack checks. This demonstrates password protection and preservation of repository contents after an incorrect attempt; **it cannot recover an actually lost encryption key or substitute for secure credential escrow and independently tested restores**.
