@@ -35,3 +35,7 @@ The optional Linux `backupctl` reads the bearer credential from a private, regul
 ## Scheduled local snapshot client
 
 The optional Linux `backupctl` reads the bearer credential from a private, regular file (0600 or stricter), never from command-line flags, and refuses remote/non-numeric/non-loopback endpoints, proxy use and HTTP redirects. The systemd timer/service templates remain **disabled until deliberately installed** and require systemd credentials, an existing service account and reviewed paths. Neither repository secrets nor user-specific schedules are stored in Git. The local service must enforce its own authentication, and a successful timer run alone does not certify recoverability.
+
+## Repeatable recovery acceptance (synthetic only)
+
+The optional workflow `recovery-manual.yml` builds the pinned Kopia/Rclone sources on an ephemeral runner and exercises two synthetic recovery scripts, including duplicated backups, Unicode and symlinks. It is manual-only to avoid unexpected cloud, build or CI costs. Neither script reads real user repositories or credentials. Success does not guarantee recovery of live databases, cloud object stores, changed permissions, enormous files, interrupted writes or an actual disaster.

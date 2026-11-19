@@ -12,6 +12,13 @@ trap cleanup EXIT
 mkdir -p "$work/data/Documents" "$work/repository" "$work/cache" "$work/logs"
 printf 'goreecloud-backup-integration-smoke\n' >"$work/data/Documents/sample.txt"
 printf 'with special characters: alpha beta\n' >"$work/data/Documents/second.txt"
+mkdir -p "$work/data/Documents/nested"
+printf 'Unicode filename and nested metadata\n' >"$work/data/Documents/nested/Grüße-東京.txt"
+ln -s "sample.txt" "$work/data/Documents/relative-link"
+python3 - "$work/data/Documents/large-deterministic.bin" <<'PYDATA'
+import pathlib,sys
+pathlib.Path(sys.argv[1]).write_bytes((b'GoreeCloud synthetic deterministic recovery test ' * 122880)[:5_000_000])
+PYDATA
 
 export KOPIA_CONFIG_PATH="$work/kopia-config"
 export KOPIA_PASSWORD='goreecloud-synthetic-backup-test-password-not-a-real-secret'
