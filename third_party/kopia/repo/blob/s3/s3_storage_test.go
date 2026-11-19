@@ -826,8 +826,8 @@ func (cp *customProvider) IsExpired() bool {
 func (cp *customProvider) RetrieveWithCredContext(cc *credentials.CredContext) (credentials.Value, error) {
 	if cp.forceExpired.Load() {
 		return credentials.Value{
-			AccessKeyID:     "ASIAQREAKNKDBR4F5F2I",
-			SecretAccessKey: "EF82nKmZbnFETa96xxx1C3k20hG4Nw+2v+FBNjp3",
+			AccessKeyID:     "GCB_EXPIRED_TEST_ACCESS_KEY",
+			SecretAccessKey: "GCB_EXPIRED_TEST_SECRET_KEY",
 			SessionToken:    expiredSessionToken,
 			SignerType:      credentials.SignatureV2,
 		}, nil

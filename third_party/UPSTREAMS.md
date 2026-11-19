@@ -1,6 +1,6 @@
 # Pinned upstream source — GoreeCloud Backup
 
-This repository includes source snapshots of Kopia and Rclone **inside the owning repository**, preserving upstream copyright, license, package boundaries, build metadata, assets and notices. They are not independently authored GoreeCloud code and remain separate Go modules.
+This repository includes source snapshots of Kopia and Rclone **inside the owning repository**, preserving upstream copyright, license, package boundaries, build metadata, assets and notices. The Kopia tree includes one documented security-fixture delta; see [PATCHES.md](PATCHES.md). They are not independently authored GoreeCloud code and remain separate Go modules.
 
 | Component | Source path | Upstream | Tag | Verified upstream commit | License |
 | --- | --- | --- | --- | --- | --- |
@@ -9,7 +9,7 @@ This repository includes source snapshots of Kopia and Rclone **inside the ownin
 
 ## Provenance
 
-The two official GitHub tags were fetched as shallow, read-only working trees via HTTPS with their upstream repository URLs and commit identifiers verified. Their tracked source was imported without Git history or `.git` internals. No upstream build scripts, installers, packaging scripts or network hooks were run during import. `diff -qr` confirmed the imported source matches the checked-out upstream tag contents (excluding `.git`). The standalone upstream `go.mod` and `go.sum` files were preserved.
+The two official GitHub tags were fetched as shallow, read-only working trees via HTTPS with their upstream repository URLs and commit identifiers verified. Their tracked source was imported without Git history or `.git` internals. No upstream build scripts, installers, packaging scripts or network hooks were run during import. At import, `diff -qr` confirmed that all source matched the checked-out upstream tags (excluding `.git`). A subsequent *explicitly recorded* local patch modifies one Kopia test fixture; see PATCHES.md before claiming byte-identical upstream source. The standalone upstream `go.mod` and `go.sum` files were preserved.
 
 `third_party/sources.sha256` records checksums for every imported ordinary file. Run `sha256sum -c third_party/sources.sha256` from the repository root to detect accidental changes. A hash manifest is a check of **internal file consistency**, not proof of upstream authenticity: compare release tags and SHA with verified upstream references before updating.
 
@@ -17,7 +17,7 @@ The two official GitHub tags were fetched as shallow, read-only working trees vi
 
 Use `scripts/build-upstreams.sh` to compile pinned source with an explicitly installed supported Go toolchain, the public Go proxy, checksum database, and read-only module manifests. Build output is `build/bin/kopia` and `build/bin/rclone` and is ignored by Git. Go resolves many version-pinned transitive dependencies on demand; **not every transitive dependency's source is bundled**. Build reproducibility, full license/SBOM auditing, malware scanning and cross-platform binary acceptance remain separate gates.
 
-Original upstream copyrights and trademarks remain with their owners. **Do not represent this source copy as an independent GoreeCloud implementation**. Do not modify it without documenting the original upstream base, corresponding changes, licenses, test results and update path. Avoid using unreviewed embedded upstream scripts. Source is imported for auditable integration and eventual vetted, first-party distribution, not as an endorsement of every upstream optional feature.
+Original upstream copyrights and trademarks remain with their owners. **Do not represent this source copy as an independent GoreeCloud implementation**. Any changes must record the original upstream base, modified paths, licenses, test results and update path in PATCHES.md. Avoid using unreviewed embedded upstream scripts. Source is imported for auditable integration and eventual vetted, first-party distribution, not as an endorsement of every upstream optional feature.
 
 ## Known limitations
 

@@ -15,7 +15,7 @@ GoreeCloud Backup is a local-first, open-source backup control service with a **
 
 ## Included upstream source and engine builds
 
-Pinned upstream source for **Kopia v0.23.1** and **Rclone v1.75.2** is now maintained under `third_party/kopia/` and `third_party/rclone/`, with their original license files, module pins and copyright notices retained. See [upstream provenance](third_party/UPSTREAMS.md). These are unmodified upstream snapshots, not independently authored GoreeCloud code.
+Pinned upstream source for **Kopia v0.23.1** and **Rclone v1.75.2** is now maintained under `third_party/kopia/` and `third_party/rclone/`, with their original license files, module pins and copyright notices retained. See [upstream provenance](third_party/UPSTREAMS.md). These are attributed upstream source snapshots with an explicitly documented small security-fixture patch, not independently authored GoreeCloud code. See `third_party/PATCHES.md`.
 
 From the repository root, after installing a supported Go toolchain, run `./scripts/build-upstreams.sh` to build both from pinned source into ignored `build/bin/`. The script verifies imported file hashes before compiling and never invokes upstream installers. Select those binaries with `GCB_KOPIA_BIN=$PWD/build/bin/kopia` and `GCB_RCLONE_BIN=$PWD/build/bin/rclone`; the default still uses separately installed executables on `PATH`. Module dependencies are resolved from audited public Go proxy/checksum infrastructure at build time; full transitive vendor/SBOM review is pending.
 
