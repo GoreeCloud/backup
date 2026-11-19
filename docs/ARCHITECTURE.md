@@ -82,3 +82,8 @@ The staging root must be deliberately allocated separately from the source-tree 
 ## Read-only viewer access
 
 When `GCB_VIEW_TOKEN` is configured and distinct from `GCB_API_TOKEN`, the server authenticates single-valued bearer headers and marks matching viewer requests using request-local, unexported context state. It returns `readOnly=true`, disables write/cost capabilities and omits `sourceRoot` from the viewer's GET /api/v1/info response. Any unrecognized token or attempted viewer mutation fails with HTTP 401 and a generic error. Client controls are informational convenience only; authorization is enforced by the Go API on every endpoint. The process launcher removes both secrets from Kopia/Rclone child environments.
+
+
+## Viewer metadata minimization
+
+The viewer token's authenticated `GET /api/v1/snapshots` response is a strict re-serialized allowlist of snapshot ID, timestamp and a source leaf label. It never forwards the raw Kopia snapshot JSON (which can contain hostnames, usernames, absolute paths, object IDs and tags) to that role. The source label is derived using both Windows and Unix path separators and has control characters removed and an 80-rune limit. Viewer `GET /api/v1/status` returns only connected availability and a generic message. Administrators continue receiving full upstream details. Invalid list JSON fails closed rather than falling back to a raw response; the authenticated viewer continues to see some identifying metadata by design.

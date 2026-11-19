@@ -41,3 +41,6 @@ Credential resilience test: a wrong passphrase on a clean copied encrypted repos
 
 
 **Upload failure regression:** The selected-file endpoint is tested against premature EOF, mismatched declared length, stream sizes above 32 MiB without a Content-Length and zero-byte content. Handled errors must reject the snapshot before Kopia is invoked and leave no plaintext staging residue; crash-recovery and resumable transfer are not implemented.
+
+
+**Viewer privacy:** Read-only API status uses a generic connected message and snapshot responses expose only snapshot ID, timestamp and a bounded source-folder leaf. Full host/user/source paths, root object IDs and tags remain available only through the administrator token. This does not provide anonymous or per-user access control.
