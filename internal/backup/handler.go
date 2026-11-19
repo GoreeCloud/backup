@@ -274,6 +274,11 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 		respond(w, 200, map[string]any{"connected": false, "message": "Kopia repository unavailable or not connected"})
 		return
 	}
+	if isViewerRequest(r) {
+		// Raw Kopia status can identify storage endpoints and OS paths.
+		respond(w, http.StatusOK, map[string]any{"connected": true, "message": "Kopia repository connected"})
+		return
+	}
 	s := strings.TrimSpace(string(output))
 	if len(s) > 4096 {
 		s = s[:4096]
@@ -290,6 +295,15 @@ func (h *Handler) snapshots(w http.ResponseWriter, r *http.Request) {
 	}
 	if !json.Valid(output) {
 		writeErr(w, 502, "unexpected Kopia output")
+		return
+	}
+	if isViewerRequest(r) {
+		summaries, err := minimalViewerSnapshots(output)
+		if err != nil {
+			writeErr(w, http.StatusBadGateway, "unexpected Kopia snapshot metadata")
+			return
+		}
+		respond(w, http.StatusOK, summaries)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

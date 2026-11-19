@@ -128,6 +128,23 @@ GCB_API_URL="$base" GCB_API_TOKEN_FILE="$work/cli-token" "$work/backupctl" snaps
 grep -q 'Kopia snapshot command completed' "$work/cli-result.txt"
 echo "PASS: local backupctl authenticated a snapshot request without an argv token"
 curl -fsS --max-time 30 "${auth[@]}" "$base/api/v1/snapshots" >"$work/list.json"
+curl -fsS --max-time 30 "${viewer[@]}" "$base/api/v1/snapshots" >"$work/viewer-snapshots.json"
+python3 - "$work/list.json" "$work/viewer-snapshots.json" "$work/source" <<'PYVIEWERSNAP'
+import json,sys
+admin=json.load(open(sys.argv[1],encoding='utf-8'))
+viewer=json.load(open(sys.argv[2],encoding='utf-8'))
+assert isinstance(viewer,list) and len(viewer)==len(admin) and len(viewer)>0
+assert {row['id'] for row in viewer}=={row['id'] for row in admin}
+for row in viewer:
+    assert set(row).issubset({'id','startTime','source'}),row
+    assert set(row['source'])=={'path'},row
+    label=row['source']['path']
+    assert label and '/' not in label and chr(92) not in label, label
+serialized=json.dumps(viewer,ensure_ascii=False)
+assert sys.argv[3] not in serialized,'viewer received source-root path'
+assert 'rootEntry' not in serialized and 'host' not in serialized and 'user' not in serialized
+print('PASS: viewer snapshot records retain IDs but redact host, user and absolute source paths')
+PYVIEWERSNAP
 curl -fsS --max-time 45 -X POST "${auth[@]}" "$base/api/v1/verify" >"$work/verify.json"
 # The opt-in local CLI must acknowledge provider read/transfer cost explicitly.
 GCB_API_URL="$base" GCB_API_TOKEN_FILE="$work/cli-token" \
