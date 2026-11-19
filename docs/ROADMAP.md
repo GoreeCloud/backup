@@ -42,3 +42,6 @@ A stage is not complete solely because its source files exist. No release date h
 
 
 - Replace coarse preview admin/view bearer secrets with verified GoreeCloud Identity accounts, short-lived credentials, per-user resource permissions, rotation, device pairing and audited authorization policies before multiuser production use.
+
+
+- Extend the passing isolated Rclone-to-local encrypted repository mirror/restore check to disposable SFTP/S3/NAS provider compatibility tests. Design consistent mirror checkpoints and resumable, least-privilege, verified transfers before implementing remote backup orchestration; never run destructive sync/prune on the only recoverable repository.
