@@ -33,15 +33,18 @@ type doctorReport struct {
 	CanSnapshot     bool
 	CanVerify       bool
 	RestoreEnabled  bool
+	NewestTimestamp time.Time
 }
 
 func executeDoctor(args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	timeout := flags.Duration("timeout", 30*time.Second, "maximum metadata preflight duration")
+	maxAge := flags.Duration("max-age", 0, "optional maximum age of newest visible timestamp")
 	if flags.Parse(args) != nil || len(flags.Args()) != 0 ||
-		*timeout < 3*time.Second || *timeout > 2*time.Minute {
-		fmt.Fprintln(stderr, "Usage: backupctl doctor [--timeout=30s]; timeout must be 3s..2m")
+		*timeout < 3*time.Second || *timeout > 2*time.Minute ||
+		*maxAge < 0 || (*maxAge != 0 && (*maxAge < time.Minute || *maxAge > 365*24*time.Hour)) {
+		fmt.Fprintln(stderr, "Usage: backupctl doctor [--timeout=30s] [--max-age=48h]; timeout 3s..2m; optional max-age 1m..8760h")
 		return 2
 	}
 	endpoint := os.Getenv("GCB_API_URL")
@@ -87,7 +90,37 @@ func executeDoctor(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "Preflight NOT ready: repository connection or visible recovery point is missing.")
 		return 1
 	}
+	if !report.NewestTimestamp.IsZero() {
+		fmt.Fprintf(stdout, "Newest visible snapshot timestamp (UTC): %s\n", report.NewestTimestamp.UTC().Format(time.RFC3339))
+	} else {
+		fmt.Fprintln(stdout, "Newest visible snapshot timestamp: unavailable")
+	}
+	if *maxAge > 0 {
+		if err := checkSnapshotFreshness(report.NewestTimestamp, time.Now(), *maxAge); err != nil {
+			fmt.Fprintln(stderr, "Preflight NOT fresh:", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "Freshness threshold met: newest listed backup is within %s\n", maxAge.String())
+	}
 	return 0
+}
+
+// This is a metadata timestamp policy, not a claim of verification or restore.
+// Refuse unparseable, stale and substantially future-dated records when opted in.
+func checkSnapshotFreshness(newest, now time.Time, maxAge time.Duration) error {
+	if maxAge <= 0 {
+		return errors.New("freshness threshold must be positive")
+	}
+	if newest.IsZero() {
+		return errors.New("no valid dated snapshot is visible")
+	}
+	if newest.After(now.Add(5 * time.Minute)) {
+		return errors.New("newest snapshot timestamp is in the future; check clock consistency")
+	}
+	if now.Sub(newest) > maxAge {
+		return errors.New("newest visible backup is older than the requested threshold")
+	}
+	return nil
 }
 
 func doctorGET(ctx context.Context, endpoint, token, route string, result any) error {
@@ -138,11 +171,19 @@ func doctorMetadata(ctx context.Context, endpoint, token string) (doctorReport, 
 	}
 	// Do not query snapshots when the repository is already unavailable.
 	if report.Connected {
-		snapshots, err := listSnapshots(ctx, endpoint, token, 1)
+		// Inspect up to 100 visible snapshot timestamps. Do not assume Kopia
+		// returns reverse chronological order or that the final item is newest.
+		snapshots, err := listSnapshots(ctx, endpoint, token, 100)
 		if err != nil {
 			return empty, err
 		}
 		report.VisibleSnapshot = len(snapshots) > 0
+		for _, snapshot := range snapshots {
+			if timestamp, err := time.Parse(time.RFC3339, snapshot.Timestamp); err == nil &&
+				(timestamp.After(report.NewestTimestamp) || report.NewestTimestamp.IsZero()) {
+				report.NewestTimestamp = timestamp.UTC()
+			}
+		}
 	}
 	return report, nil
 }

@@ -148,6 +148,11 @@ GCB_API_URL="$base" GCB_API_TOKEN_FILE="$work/viewer-cli-token"   "$work/backupc
 grep -q 'Credential scope: read-only viewer' "$work/doctor-viewer.txt"
 grep -q 'at least one visible snapshot' "$work/doctor-viewer.txt"
 grep -q 'No archived file contents were verified or restored' "$work/doctor-viewer.txt"
+GCB_API_URL="$base" GCB_API_TOKEN_FILE="$work/viewer-cli-token" \
+  "$work/backupctl" doctor --timeout=30s --max-age=24h >"$work/doctor-freshness.txt"
+grep -q 'Freshness threshold met' "$work/doctor-freshness.txt"
+grep -q 'Newest visible snapshot timestamp (UTC):' "$work/doctor-freshness.txt"
+echo 'PASS: viewer-only doctor checks synthetic snapshot freshness without any mutation'
 echo 'PASS: local read-only doctor preflight reports available metadata without claiming a restore'
 curl -fsS --max-time 30 "${viewer[@]}" "$base/api/v1/snapshots" >"$work/viewer-snapshots.json"
 python3 - "$work/list.json" "$work/viewer-snapshots.json" "$work/source" <<'PYVIEWERSNAP'
