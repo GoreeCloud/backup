@@ -125,3 +125,7 @@ After the pinned Kopia and Rclone binaries are built in the manual Recovery Inte
 ## Metadata-only local preflight
 
 The protected local backupctl doctor command reads the same numeric-loopback API with the existing private token file. It validates identity and role capabilities before requesting a status and a bounded snapshot list; it does not invoke POST methods or provider-capacity queries. It distinguishes missing recovery points from an available repository and explicitly reports that no encrypted file content was restored. This is an operator information tool, not a backup readiness certification. Synthetic Go tests cover permission boundaries and malformed/oversized replies; a disposable HTTP integration test exercises the viewer token.
+
+## Dual-runner build comparison
+
+A dedicated, opt-in workflow launches two parallel Ubuntu 24.04 source-build jobs with pinned Go 1.26.0, linux/amd64, CGO disabled and fresh compiled-object caches. Each checks the exact imported source manifest and invokes scripts/rebuild-linux-amd64.sh, compiling included upstream Kopia and Rclone sources without external installation scripts. The workflow exports only executable SHA-256 values as job outputs. A third job validates and compares each pair from separate runners. This is an independent **build execution comparison**, not comprehensive reproducible-release or signed supply-chain provenance; module downloads still rely on the pinned Go checksums and official module checksum service.

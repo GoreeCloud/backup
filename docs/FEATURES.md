@@ -68,3 +68,5 @@ Credential resilience test: a wrong passphrase on a clean copied encrypted repos
 **Compiled-binary metadata evidence:** Manual recovery CI publishes a short-lived, unsigned manifest linking both source-built Kopia/Rclone executable SHA-256 hashes with the checked-out Git commit, source manifest/build script hashes and modules recorded in Go binary build metadata. This is not release signing or a reproducible-build proof.
 
 **Metadata-only Linux preflight:** The optional backupctl doctor command reports local API identity, viewer/admin scope, repository connection and presence of a visible snapshot without invoking a write, restore, provider quota operation or full-file archive verification. It fails on unreachable, missing or malformed metadata and never calls a passing preflight a recovery acceptance test.
+
+**Optional dual-runner reproducibility comparison:** A manually dispatched workflow builds Kopia and Rclone on two separate clean Ubuntu 24.04 hosts under Go 1.26.0/linux-amd64/CGO-disabled inputs and compares SHA-256 hashes in a third job. This is scoped evidence only; no signed or production release is claimed.

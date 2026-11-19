@@ -61,3 +61,5 @@ A stage is not complete solely because its source files exist. No release date h
 - Advance the new manual unsigned compiled-engine evidence into independently repeated byte-for-byte reproducible builds across isolated Linux runners, verified license and advisory reviews, signed release artifacts and protected attestations before shipping production binaries.
 
 - Extend read-only local preflight into opt-in documented operational acceptance gates that incorporate verified offsite location, retention policy, key-recovery rehearsal, last successful snapshot age, meaningful logging and independent byte-for-byte restore evidence. Do not conflate metadata availability with recoverability.
+
+- Extend the optional dual-runner Linux AMD64 hash comparison into signed, verifiable build attestations, repeat builds across independent runner providers, reproducibility tests for Android/web and additional OS/architecture targets, with complete dependency licensing and vulnerability triage before stable distribution.
