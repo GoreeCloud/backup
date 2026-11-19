@@ -55,3 +55,5 @@ Credential resilience test: a wrong passphrase on a clean copied encrypted repos
 
 
 **Credential regression guard:** Standard CI checks tracked text for newly introduced complete AWS access-key IDs and GitHub token-shaped values without logging the matched literals. Existing vendored upstream examples have path/fingerprint/count baselines; unresolved history alerts and unrelated secret formats remain outside this guard's assurances.
+
+**Staging directory identity:** Temporary Android/browser upload file writes and cleanup are pinned to the server's original private staging directory handle, with new tests for symlink swaps, replaced private directories, and renamed directory handles. The downstream Kopia path lookup remains a separate operational trust boundary.

@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -70,6 +71,69 @@ func safeMobileFilename(name string) bool {
 	return true
 }
 
+// openPrivateMobileRoot pins access to the original staging directory handle,
+// then compares that handle against both the configured path and its startup
+// identity. A symlink or private directory substituted at the same path is
+// not an acceptable replacement. os.Root operations cannot traverse outside
+// the opened tree even if the containing parent changes later.
+func (h *Handler) openPrivateMobileRoot() (*os.Root, error) {
+	if h.mobileRoot == "" || h.mobileInfo == nil {
+		return nil, errors.New("mobile ingest root is not configured")
+	}
+	root, err := os.OpenRoot(h.mobileRoot)
+	if err != nil {
+		return nil, errors.New("cannot open private ingest directory")
+	}
+	closeOnError := func(e error) (*os.Root, error) { _ = root.Close(); return nil, e }
+	opened, err := root.Stat(".")
+	if err != nil {
+		return closeOnError(errors.New("cannot inspect private ingest directory"))
+	}
+	current, err := os.Lstat(h.mobileRoot)
+	if err != nil || !current.IsDir() || current.Mode().Perm()&0077 != 0 ||
+		!os.SameFile(opened, h.mobileInfo) || !os.SameFile(current, h.mobileInfo) {
+		return closeOnError(errors.New("mobile ingest directory was substituted or permissions changed"))
+	}
+	directory, err := root.Open(".")
+	if err != nil {
+		return closeOnError(errors.New("cannot read private ingest root"))
+	}
+	entries, readErr := directory.ReadDir(1)
+	closeErr := directory.Close()
+	if readErr != nil && !errors.Is(readErr, io.EOF) {
+		return closeOnError(errors.New("cannot enumerate private ingest root"))
+	}
+	if closeErr != nil {
+		return closeOnError(errors.New("cannot close private ingest root listing"))
+	}
+	if len(entries) != 0 {
+		return closeOnError(errors.New("mobile ingest root contains unexpected files; operator inspection required"))
+	}
+	return root, nil
+}
+
+// cleanupMobileWorkspace removes only the one created file and directory.
+// os.Root.RemoveAll requires Go >=1.25; this intentionally supports the
+// repository's Go 1.24 minimum without falling back to unsafe absolute paths.
+// Never delete a substituted workspace entry under the pinned parent.
+func cleanupMobileWorkspace(parent, workspace *os.Root, workspaceName, filename string) error {
+	if err := workspace.Remove(filename); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return errors.New("cannot remove temporary upload file")
+	}
+	expected, err := workspace.Stat(".")
+	if err != nil {
+		return errors.New("cannot inspect private upload workspace")
+	}
+	current, err := parent.Lstat(workspaceName)
+	if err != nil || !current.IsDir() || !os.SameFile(current, expected) {
+		return errors.New("temporary upload workspace was substituted")
+	}
+	if err := parent.Remove(workspaceName); err != nil {
+		return errors.New("cannot remove temporary upload workspace")
+	}
+	return nil
+}
+
 func (h *Handler) mobileFile(w http.ResponseWriter, r *http.Request) {
 	if h.mobileRoot == "" {
 		writeErr(w, http.StatusConflict, "mobile selected-file backup is disabled; configure a private ingest directory")
@@ -103,29 +167,51 @@ func (h *Handler) mobileFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() { <-h.jobGate }()
-	current, err := os.Lstat(h.mobileRoot)
-	if err != nil || !current.IsDir() || current.Mode().Perm()&0077 != 0 {
-		writeErr(w, http.StatusServiceUnavailable, "mobile ingest workspace permissions changed")
-		return
-	}
-	// Check again for leftover files before each upload. The process-local
-	// job gate serializes legitimate writes, so unexpected directory entries
-	// indicate another writer or crash residue that requires operator review.
-	entries, err := os.ReadDir(h.mobileRoot)
-	if err != nil || len(entries) != 0 {
-		writeErr(w, http.StatusServiceUnavailable, "mobile ingest root contains unexpected files; operator inspection required")
-		return
-	}
-
-	workspace, err := os.MkdirTemp(h.mobileRoot, "mobile-")
+	stageRoot, err := h.openPrivateMobileRoot()
 	if err != nil {
+		writeErr(w, http.StatusServiceUnavailable, "private ingest directory identity or contents changed; operator review required")
+		return
+	}
+	defer stageRoot.Close()
+	// Allocate a private random child under the anchored root descriptor.
+	// Never use an untrusted filesystem path for staging writes or cleanup.
+	workspaceName := ""
+	for attempts := 0; attempts < 3; attempts++ {
+		var nonce [16]byte
+		if _, err = rand.Read(nonce[:]); err != nil {
+			break
+		}
+		candidate := "mobile-" + hex.EncodeToString(nonce[:])
+		err = stageRoot.Mkdir(candidate, 0700)
+		if errors.Is(err, os.ErrExist) {
+			continue
+		}
+		if err == nil {
+			workspaceName = candidate
+		}
+		break
+	}
+	if workspaceName == "" {
 		writeErr(w, http.StatusInternalServerError, "unable to allocate private mobile staging area")
 		return
 	}
-	// Always remove the temporary plaintext copy, including on aborted uploads.
-	defer func() { _ = os.RemoveAll(workspace) }()
-	path := filepath.Join(workspace, name)
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	// Cleanup is anchored to the exact original directory even if the
+	// configured absolute path is renamed while an upload is in progress.
+	// Cleanup is registered after obtaining the child descriptor below.
+	workspaceRoot, err := stageRoot.OpenRoot(workspaceName)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "unable to open private mobile staging area")
+		return
+	}
+	defer workspaceRoot.Close()
+	removed := false
+	defer func() {
+		if !removed {
+			_ = cleanupMobileWorkspace(stageRoot, workspaceRoot, workspaceName, name)
+		}
+	}()
+	workspace := filepath.Join(h.mobileRoot, workspaceName)
+	file, err := workspaceRoot.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "unable to stage selected file")
 		return
@@ -159,6 +245,18 @@ func (h *Handler) mobileFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Kopia accepts a path (not an inherited directory handle). Refuse a
+	// changed absolute path before passing it to the external process; this
+	// does not fully eliminate a hostile same-UID rename race during Kopia's
+	// own path traversal, so the parent must remain private.
+	current, checkErr := os.Lstat(h.mobileRoot)
+	child, childErr := stageRoot.Lstat(workspaceName)
+	original, originalErr := workspaceRoot.Stat(".")
+	if checkErr != nil || current == nil || !os.SameFile(current, h.mobileInfo) ||
+		childErr != nil || originalErr != nil || !os.SameFile(child, original) {
+		writeErr(w, http.StatusServiceUnavailable, "mobile staging path changed during ingestion")
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
 	defer cancel()
 	_, err = run(ctx, h.cfg.KopiaBin, "snapshot", "create", workspace)
@@ -167,10 +265,11 @@ func (h *Handler) mobileFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Fail closed if the staged plaintext cannot be removed.
-	if err := os.RemoveAll(workspace); err != nil {
+	if err := cleanupMobileWorkspace(stageRoot, workspaceRoot, workspaceName, name); err != nil {
 		writeErr(w, http.StatusInternalServerError, "encrypted snapshot completed but temporary plaintext cleanup requires attention")
 		return
 	}
+	removed = true
 	respond(w, http.StatusCreated, map[string]any{
 		"backedUp": true, "name": name, "bytes": bytesCopied,
 		"sha256": hex.EncodeToString(digest.Sum(nil)),
