@@ -72,6 +72,12 @@ jobs:
       - run: |
           test -s LICENSE
           test -s README.md
+          test -s cmd/backupctl/main.go
+          test -s packaging/systemd/goreecloud-backup@.service
+          test -s packaging/systemd/goreecloud-backup@.timer
+          test -s cmd/backupctl/main.go
+          test -s packaging/systemd/goreecloud-backup@.service
+          test -s packaging/systemd/goreecloud-backup@.timer
           for doc in docs/ROADMAP.md docs/FEATURES.md docs/OBJECTIVES.md docs/THIRD_PARTY.md docs/SECURITY.md; do test -s "$doc"; done
 
   upstream-sources:

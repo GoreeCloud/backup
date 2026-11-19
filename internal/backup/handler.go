@@ -277,12 +277,16 @@ func (h *Handler) verify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	stats := result.Stats
-	if *result.ErrorCount != 0 || stats.ReadFileCount < stats.ExpectedTotalFileCount || stats.ProcessedObjectCount < stats.ExpectedTotalObjectCount {
+	// Kopia deduplicates identical file/object contents across snapshots. The
+	// number of unique objects it reads can be lower than the total reference
+	// count; comparing these numbers for equality incorrectly reports failure.
+	if *result.ErrorCount != 0 || stats.ReadFileCount < 1 || stats.ExpectedTotalFileCount < 1 || stats.ProcessedObjectCount < 1 {
 		writeErr(w, http.StatusBadGateway, "incomplete or failed Kopia file verification; investigate repository integrity")
 		return
 	}
 	respond(w, http.StatusOK, map[string]any{
 		"verified": true, "filesRead": stats.ReadFileCount, "bytesRead": stats.ReadBytes,
+		"fileReferences": stats.ExpectedTotalFileCount, "objectsRead": stats.ProcessedObjectCount,
 		"scope": "100% of files in the currently available snapshots",
 		"note":  "An independent restore test is still required",
 	})

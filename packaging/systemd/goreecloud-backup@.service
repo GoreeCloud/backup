@@ -1,0 +1,28 @@
+[Unit]
+Description=GoreeCloud Backup scheduled encrypted snapshot of %I
+Documentation=https://github.com/GoreeCloud/backup/blob/main/packaging/systemd/README.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=goreecloud-backup
+Group=goreecloud-backup
+LoadCredential=backup-api-token:/etc/goreecloud/backup/api-token
+Environment=GCB_API_TOKEN_FILE=%d/backup-api-token
+Environment=GCB_API_URL=http://127.0.0.1:8787
+ExecStart=/usr/local/bin/goreecloud-backupctl snapshot --source=%I --timeout=30m
+TimeoutStartSec=35min
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectHostname=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
