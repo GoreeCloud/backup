@@ -29,3 +29,8 @@
 - Supply chain maintenance, dependency updates, CI gates, branch protection and release signing.
 
 A stage is not complete solely because its source files exist. No release date has been committed.
+
+
+### Software supply chain
+
+- Expand the implemented resolved-Go-module inventory into a complete, independently checked binary dependency/permissions/licensing/advisory/SBOM audit covering pinned Go engines, Android/Gradle, web/npm, operating-system libraries, CI actions, and distribution artifacts.

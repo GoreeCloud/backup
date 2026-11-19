@@ -22,3 +22,6 @@
 | GoreeCloud Mesh, Identity, GoreeShield, Wardveil integration | Requirements identified | No external runtime integration claimed |
 
 Source and tests establish development capabilities, not production backup reliability.
+
+
+**Supply-chain visibility:** Manually invoked Recovery Integration CI also generates a dated-by-workflow resolved-Go-module CycloneDX inventory artifact for the attributed Kopia and Rclone source trees. This records module selection only; full transitive licensing/advisory and release provenance audits remain open.
