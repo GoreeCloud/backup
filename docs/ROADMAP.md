@@ -53,3 +53,5 @@ A stage is not complete solely because its source files exist. No release date h
 - Extend the limited no-new-AWS/GitHub-key credential guard to verified multi-pattern/entropy scanning with false-positive triage and upstream migration support. Seek authoritative owner evidence on historical GitHub secret-scanning alert #1; neither inherited examples nor old commits are cleared by a new-source scanner.
 
 - Eliminate the remaining external Kopia path lookup race using a verified descriptor-preserving source handoff, or enforce a stronger per-job OS sandbox, dedicated UID and immutable parent paths. Validate hard process crashes, partial disk failures and orphaned plaintext management before multiuser deployment.
+
+- Beyond the passing disposable local and loopback SFTP Kopia/Rclone recovery drills, test controlled S3-compatible object stores, provider quotas, interrupted and retried transfers, real offsite credentials, per-user permissions, untrusted remote host keys, immutable repository mirrors and consistency-safe checkpoints. Never delete the only recoverable repository.
