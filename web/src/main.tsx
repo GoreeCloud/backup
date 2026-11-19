@@ -5,6 +5,8 @@ import './styles.css'
 
 type Status = { connected: boolean; message: string }
 type Remotes = { remotes: string[] }
+type BackupInfo = { restoreEnabled: boolean }
+type RestoreResult = { restored: boolean; snapshotId: string; relativePath: string; note: string }
 type Verification = { verified: boolean; filesRead: number; bytesRead: number; note: string }
 type ServerError = { error?: string }
 const api = async <T,>(path: string, token: string, init: RequestInit = {}): Promise<T> => {
@@ -26,6 +28,10 @@ function App() {
   const [snapshots, setSnapshots] = useState<unknown[]>([])
   const [remotes, setRemotes] = useState<string[]>([])
   const [source, setSource] = useState('')
+  const [restoreEnabled, setRestoreEnabled] = useState(false)
+  const [restoreId, setRestoreId] = useState('')
+  const [restoreConsent, setRestoreConsent] = useState(false)
+  const [lastRestore, setLastRestore] = useState<RestoreResult | null>(null)
   const [verifyConsent, setVerifyConsent] = useState(false)
   const [lastVerification, setLastVerification] = useState<Verification | null>(null)
   const [error, setError] = useState('')
@@ -38,12 +44,14 @@ function App() {
     try {
       const s = await api<Status>('/api/v1/status', key)
       setStatus(s)
-      const [shots, destinations] = await Promise.allSettled([
+      const [shots, destinations, info] = await Promise.allSettled([
         api<unknown>('/api/v1/snapshots', key),
-        api<Remotes>('/api/v1/remotes', key)
+        api<Remotes>('/api/v1/remotes', key),
+        api<BackupInfo>('/api/v1/info', key)
       ])
       setSnapshots(shots.status === 'fulfilled' && Array.isArray(shots.value) ? shots.value : [])
       setRemotes(destinations.status === 'fulfilled' ? destinations.value.remotes : [])
+      setRestoreEnabled(info.status === 'fulfilled' && Boolean(info.value.restoreEnabled))
       if (shots.status === 'rejected') setLastAction('Snapshot list unavailable; check Kopia connection')
     } catch (cause) {
       setStatus(null)
@@ -92,6 +100,31 @@ function App() {
     } finally { setBusy(false) }
   }
 
+
+  const restore = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!restoreEnabled || !restoreId || !restoreConsent || busy) return
+    setBusy(true)
+    setError('')
+    setLastRestore(null)
+    setLastAction('Restoring a snapshot into a private, new directory. The original source is not modified.')
+    try {
+      const result = await api<RestoreResult>('/api/v1/restore', token, {
+        method: 'POST', body: JSON.stringify({ snapshotId: restoreId, acknowledge: true })
+      })
+      setLastRestore(result)
+      setLastAction('A contained restore completed. Inspect recovered files and compare with expected data.')
+      setRestoreConsent(false)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Restore failed')
+    } finally { setBusy(false) }
+  }
+
+  const snapshotIds = snapshots.map(item => {
+    if (item && typeof item === 'object' && 'id' in item && typeof item.id === 'string') return item.id
+    return ''
+  }).filter(Boolean)
+
   return (
     <div className="layout">
       <aside className="sidebar" aria-label="Primary navigation">
@@ -100,6 +133,7 @@ function App() {
           <a href="#overview" className="nav-current">Overview</a>
           <a href="#snapshots">Snapshots</a>
           <a href="#verification">Verify integrity</a>
+          <a href="#restore">Restore workspace</a>
           <a href="#destinations">Destinations</a>
         </nav>
         <p className="sidebar-note">Local-first · No telemetry<br />Development preview v0.1.0</p>
@@ -132,6 +166,21 @@ function App() {
               <div className="section-head"><div><div className="eyebrow">RECOVERY POINTS</div><h2>Snapshots</h2></div><span className="muted-label">View only</span></div>
               {snapshots.length ? <ul className="snapshot-list">{snapshots.slice(0, 50).map((snapshot, index) => <li key={index}><span className="snapshot-icon" aria-hidden="true">▣</span><code>{JSON.stringify(snapshot).slice(0, 360)}</code></li>)}</ul>
                 : <div className="empty"><span aria-hidden="true">▤</span><strong>No snapshots displayed</strong><p>Connect a Kopia repository and create your first protected snapshot.</p></div>}
+            </section>
+            <section className="panel" id="restore">
+              <div className="eyebrow">SAFE RECOVERY</div><h2>Contained restore workspace</h2>
+              <p className="subtle">Restore an existing snapshot to a new, private directory on the server. The destination is allocated automatically, separate from the configured source root; the original files are not overwritten.</p>
+              {!restoreEnabled ? <p className="hint">Restoration is disabled until the server operator configures a separate, private GCB_RESTORE_ROOT directory.</p> :
+                <form onSubmit={restore} className="restore-form">
+                  <label htmlFor="restoreSnapshot">Recovery point</label>
+                  <select id="restoreSnapshot" value={restoreId} onChange={e => setRestoreId(e.target.value)} disabled={busy || snapshotIds.length === 0} required>
+                    <option value="">Choose a snapshot</option>
+                    {snapshotIds.map(id => <option key={id} value={id}>{id}</option>)}
+                  </select>
+                  <label className="verify-consent"><input type="checkbox" checked={restoreConsent} onChange={e => setRestoreConsent(e.target.checked)} disabled={busy} /> I understand this operation may download cloud backup data, use server disk space, and must be inspected before recovering original files.</label>
+                  <button type="submit" disabled={busy || !restoreConsent || !restoreId || !status?.connected}>{busy ? 'Working…' : 'Restore to new private workspace'}</button>
+                </form>}
+              {lastRestore && <p className="hint" role="status">Restore completed inside the operator-controlled restore root: <code>{lastRestore.relativePath}</code>. Verify its contents before use. No files were written to the original source.</p>}
             </section>
             <section className="panel" id="create">
               <div className="eyebrow">NEW RECOVERY POINT</div><h2>Create a snapshot</h2>

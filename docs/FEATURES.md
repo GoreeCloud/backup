@@ -11,7 +11,8 @@
 | Web app | React/TypeScript source | Browser and accessibility acceptance not yet complete |
 | Android app | Kotlin/Jetpack Compose read-only source | Signed APK and physical device acceptance pending |
 | Rclone backend as Kopia storage | Upstream CLI setup only | Experimental/not maintained upstream; not validated here |
-| Restoration, pruning, retention UI | Planned | Requires safe restore-target handling and nonproduction drills |
+| Contained restore via API and web | Implemented, disabled unless `GCB_RESTORE_ROOT` is configured | An isolated synthetic HTTP restore passed; no arbitrary restore destination or live overwrite |
+| Advanced recovery browsing, pruning, retention UI | Planned | Requires safe restore-target handling and nonproduction drills |
 | Continuous schedules and alerts | Planned | Needs scheduler, state tracking and secure notifications |
 | Android device backup/restore | Planned | Scoped storage/permissions and encrypted transport needed |
 | GoreeCloud Mesh, Identity, GoreeShield, Wardveil integration | Requirements identified | No external runtime integration claimed |

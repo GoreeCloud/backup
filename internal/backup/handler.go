@@ -18,23 +18,25 @@ import (
 )
 
 type Config struct {
-	Listen, Token, SourceRoot, KopiaBin, RcloneBin, WebDir string
+	Listen, Token, SourceRoot, RestoreRoot, KopiaBin, RcloneBin, WebDir string
 }
 type Handler struct {
 	cfg  Config
 	root string
 	// Only one expensive repository-writing/verification operation per instance.
-	jobGate chan struct{}
+	jobGate     chan struct{}
+	restoreRoot string
 }
 
 func ConfigFromEnv() (Config, error) {
 	cfg := Config{
-		Listen:     value("GCB_LISTEN", "127.0.0.1:8787"),
-		Token:      os.Getenv("GCB_API_TOKEN"),
-		SourceRoot: os.Getenv("GCB_SOURCE_ROOT"),
-		KopiaBin:   value("GCB_KOPIA_BIN", "kopia"),
-		RcloneBin:  value("GCB_RCLONE_BIN", "rclone"),
-		WebDir:     os.Getenv("GCB_WEB_DIR"),
+		Listen:      value("GCB_LISTEN", "127.0.0.1:8787"),
+		Token:       os.Getenv("GCB_API_TOKEN"),
+		SourceRoot:  os.Getenv("GCB_SOURCE_ROOT"),
+		RestoreRoot: os.Getenv("GCB_RESTORE_ROOT"),
+		KopiaBin:    value("GCB_KOPIA_BIN", "kopia"),
+		RcloneBin:   value("GCB_RCLONE_BIN", "rclone"),
+		WebDir:      os.Getenv("GCB_WEB_DIR"),
 	}
 	if len(cfg.Token) < 32 {
 		return Config{}, errors.New("GCB_API_TOKEN must be at least 32 bytes; no default credentials")
@@ -67,7 +69,11 @@ func NewHandler(cfg Config) (http.Handler, error) {
 	if err != nil || !info.IsDir() {
 		return nil, errors.New("source root must be an existing directory")
 	}
-	h := &Handler{cfg: cfg, root: root, jobGate: make(chan struct{}, 1)}
+	restoreRoot, err := validateRestoreRoot(root, cfg.RestoreRoot)
+	if err != nil {
+		return nil, err
+	}
+	h := &Handler{cfg: cfg, root: root, restoreRoot: restoreRoot, jobGate: make(chan struct{}, 1)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -78,6 +84,7 @@ func NewHandler(cfg Config) (http.Handler, error) {
 	mux.HandleFunc("GET /api/v1/remotes", h.authorize(h.remotes))
 	mux.HandleFunc("POST /api/v1/snapshots", h.authorize(h.create))
 	mux.HandleFunc("POST /api/v1/verify", h.authorize(h.verify))
+	mux.HandleFunc("POST /api/v1/restore", h.authorize(h.restore))
 	mux.HandleFunc("GET /api/v1/info", h.authorize(h.info))
 	if cfg.WebDir != "" {
 		mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -124,7 +131,7 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 	respond(w, status, map[string]string{"error": msg})
 }
 func (h *Handler) info(w http.ResponseWriter, r *http.Request) {
-	respond(w, 200, map[string]any{"name": "GoreeCloud Backup", "version": "0.1.0-dev", "features": []string{"kopia-status", "snapshot-list", "snapshot-create", "rclone-remotes", "full-file-verify"}, "sourceRoot": h.root})
+	respond(w, 200, map[string]any{"name": "GoreeCloud Backup", "version": "0.1.0-dev", "features": []string{"kopia-status", "snapshot-list", "snapshot-create", "rclone-remotes", "full-file-verify", "contained-restore"}, "sourceRoot": h.root, "restoreEnabled": h.restoreRoot != ""})
 }
 func run(ctx context.Context, exe string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, exe, args...)
