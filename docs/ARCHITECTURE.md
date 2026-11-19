@@ -3,7 +3,7 @@
 ## Components
 
 ```text
-React web app --same-origin--> Go API <----HTTPS/VPN--- Android native read-only client
+React web app --same-origin--> Go API <----HTTPS/VPN--- Android native recovery client
                                   | fixed command array, bounded output, timeouts
                                   +-- Kopia CLI -> connected encrypted repository -> storage
                                   +-- Rclone CLI -> configured remote names
@@ -44,3 +44,7 @@ The service stores no database; Kopia's own repository and config own durable st
 ## HTTP boundary hardening
 
 Bearer token and JSON Content-Type headers are deliberately single-valued; ambiguous multiple values are rejected. The bundled web renderer serves only regular files contained inside its canonical web root, rejecting symlinks to external files and avoiding directory listings. Contained restores perform a post-write symlink/special-file audit and fail closed when unsafe files are discovered; this is not a filesystem sandbox or a claim of pre-write containment. See `docs/SECURITY.md` for the residual risk.
+
+## Android recovery companion
+
+The Kotlin/Jetpack Compose client uses authenticated, system-trusted HTTPS with redirects disabled, strict endpoint validation and a 1 MiB bounded JSON response reader. It reads repository state and up to 100 snapshot summaries and optionally requests full-file integrity verification or a contained server-side restore after explicit user acknowledgement. Rclone discovery failures do not block snapshot browsing. It does not access or upload Android device files, retain tokens, add storage permissions, or enable background jobs. Android UI controls do not replace backend authorization.
