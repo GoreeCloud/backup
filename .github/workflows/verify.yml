@@ -118,3 +118,5 @@ jobs:
           test -s third_party/kopia/go.sum
           test -s third_party/rclone/go.sum
           sha256sum -c --status third_party/sources.sha256
+      - name: Reject newly introduced high-confidence credential literals
+        run: python3 scripts/check_credential_literals.py

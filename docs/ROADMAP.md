@@ -48,3 +48,6 @@ A stage is not complete solely because its source files exist. No release date h
 
 
 - Continue from verified Android light/dark GoreeCloud UI color parity toward responsive layouts, accessible touch targets, tested typography, themes/accent options, screen-reader acceptance, Motion/accessibility preferences and centralized reusable native components.
+
+
+- Extend the limited no-new-AWS/GitHub-key credential guard to verified multi-pattern/entropy scanning with false-positive triage and upstream migration support. Seek authoritative owner evidence on historical GitHub secret-scanning alert #1; neither inherited examples nor old commits are cleared by a new-source scanner.

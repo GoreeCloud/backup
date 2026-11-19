@@ -52,3 +52,6 @@ Credential resilience test: a wrong passphrase on a clean copied encrypted repos
 **Local snapshot inventory CLI:** `backupctl list` retrieves up to 100 recent snapshot IDs and sanitized source leaf labels using a private admin or read-only viewer token and strict loopback-only transport. Raw upstream paths, host/user identities, root object IDs and tags are not displayed.
 
 **GoreeCloud UI theme parity:** Native Android uses generated Material3 light/dark colors exactly derived from the same attributed GoreeCloud UI CSS token snapshot used by the web app; CI verifies the mapping. Device-level contrast/readability/accessibility acceptance and all other cross-product UI components remain pending.
+
+
+**Credential regression guard:** Standard CI checks tracked text for newly introduced complete AWS access-key IDs and GitHub token-shaped values without logging the matched literals. Existing vendored upstream examples have path/fingerprint/count baselines; unresolved history alerts and unrelated secret formats remain outside this guard's assurances.

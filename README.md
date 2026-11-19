@@ -188,3 +188,10 @@ The manually dispatched Recovery Integration workflow also executes `scripts/smo
 ### Native Android GoreeCloud UI theme
 
 The Android Jetpack Compose application now follows the device's light/dark appearance using **exact color tokens from the attributed GoreeCloud UI stylesheet** already retained in this repository (`web/src/gc-tokens.css`, MIT-licensed source snapshot). The Material3 primary, surface, canvas, text, error, outline and container colors are generated into `android/app/src/main/java/com/goreecloud/backup/GoreeCloudUiTheme.kt` by `python3 scripts/generate_android_theme.py`. Run `python3 scripts/generate_android_theme.py --check` to verify native and web token alignment; required CI rejects stale or divergent generated colors. No new brand palette was invented. This is a theme-alignment implementation, **not** a device accessibility or full GoreeCloud UI component compliance certification.
+
+
+### Credential-shaped literal guard
+
+The standard Verify workflow now runs `python3 scripts/check_credential_literals.py`. It scans tracked textual source, manifests and upstream copies for new high-confidence AWS access-key IDs or GitHub token-shaped strings, reporting **only file paths, categories and counts**, never matched bytes. A checked-in SHA-256 fingerprint baseline acknowledges 26 previously imported, *unverified* AWS-shaped occurrences in Rclone documentation/examples. The scanner fails when a new literal or extra occurrence appears, including in an existing file; no automatic baseline expansion is provided.
+
+This is a narrow supply-chain regression check, not credential validity validation, full secret detection, a scan of historical Git commits or proof that a release contains no secrets. GitHub secret scanning alert #1, associated with **historical** imported upstream Kopia code, remains open pending authoritative ownership/expiry evidence. Updating the current source alone does not revoke historical credentials.
