@@ -129,3 +129,7 @@ The protected local backupctl doctor command reads the same numeric-loopback API
 ## Dual-runner build comparison
 
 A dedicated, opt-in workflow launches two parallel Ubuntu 24.04 source-build jobs with pinned Go 1.26.0, linux/amd64, CGO disabled and fresh compiled-object caches. Each checks the exact imported source manifest and invokes scripts/rebuild-linux-amd64.sh, compiling included upstream Kopia and Rclone sources without external installation scripts. The workflow exports only executable SHA-256 values as job outputs. A third job validates and compares each pair from separate runners. This is an independent **build execution comparison**, not comprehensive reproducible-release or signed supply-chain provenance; module downloads still rely on the pinned Go checksums and official module checksum service.
+
+## Private credential file descriptor boundary
+
+Each backupctl operation validates the absolute token filename, opens the containing directory with Go os.Root, checks the regular private leaf using Lstat, and reads through a descriptor that must match the original and final directory entry. The content read is bounded and file size/permissions are checked again before use. Changes to a configured directory after opening the pinned root cannot redirect its held file operations. This is separate from the service process bearer-token environment and does not alter authentication semantics, schedules or remotes.

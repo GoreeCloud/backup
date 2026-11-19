@@ -111,23 +111,55 @@ func validateEndpoint(raw string) error {
 	}
 	return nil
 }
+
+// readTokenFile pins the configured parent directory before opening the
+// credential, and validates the same regular, private file before and after
+// reading. A file/symlink substituted between checks cannot redirect reads
+// outside the private root or silently substitute another credential.
 func readTokenFile(name string) (string, error) {
 	if name == "" || !filepath.IsAbs(name) {
 		return "", errors.New("token file must be an absolute path")
 	}
-	info, err := os.Lstat(name)
+	parent, err := os.OpenRoot(filepath.Dir(name))
+	if err != nil {
+		return "", errors.New("token parent directory is unavailable")
+	}
+	defer parent.Close()
+	return readTokenFromRoot(parent, filepath.Base(name))
+}
+
+func readTokenFromRoot(parent *os.Root, leaf string) (string, error) {
+	before, err := parent.Lstat(leaf)
 	if err != nil {
 		return "", errors.New("token file is unavailable")
 	}
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+	if !before.Mode().IsRegular() || before.Mode().Perm()&0077 != 0 {
 		return "", errors.New("token file must be a private regular file (0600 or stricter)")
 	}
-	if info.Size() < 32 || info.Size() > 4096 {
+	if before.Size() < 32 || before.Size() > 4096 {
 		return "", errors.New("invalid token file size")
 	}
-	content, err := os.ReadFile(name)
+	file, err := parent.Open(leaf)
 	if err != nil {
-		return "", errors.New("cannot read token file")
+		return "", errors.New("cannot open private token file")
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(before, opened) {
+		return "", errors.New("token file identity changed while opening")
+	}
+	// Read from this held descriptor, not from the pathname re-resolved
+	// after Lstat. 4097 bytes detects oversize without unbounded allocation.
+	content, err := io.ReadAll(io.LimitReader(file, 4097))
+	if err != nil || len(content) < 32 || len(content) > 4096 {
+		return "", errors.New("cannot read private token content within size limit")
+	}
+	afterFile, fileErr := file.Stat()
+	afterPath, pathErr := parent.Lstat(leaf)
+	if fileErr != nil || pathErr != nil || !os.SameFile(before, afterFile) ||
+		!os.SameFile(before, afterPath) || afterFile.Mode().Perm()&0077 != 0 ||
+		afterFile.Size() != int64(len(content)) || before.Size() != afterFile.Size() {
+		return "", errors.New("token file identity, permissions or size changed while reading")
 	}
 	token := strings.TrimSpace(string(content))
 	if len(token) < 32 || len(token) > 4096 || strings.ContainsAny(token, " \t\n\r\x00") {
