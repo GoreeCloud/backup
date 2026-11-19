@@ -44,3 +44,6 @@ Credential resilience test: a wrong passphrase on a clean copied encrypted repos
 
 
 **Viewer privacy:** Read-only API status uses a generic connected message and snapshot responses expose only snapshot ID, timestamp and a bounded source-folder leaf. Full host/user/source paths, root object IDs and tags remain available only through the administrator token. This does not provide anonymous or per-user access control.
+
+
+**Rclone interoperability regression:** Source-built Rclone local `copy` and `check` of synthetic encrypted Kopia repository data, followed by a new Kopia connection, full-content verification and byte-for-byte recovery from the mirror. Real S3/SFTP/NAS/cloud backends and repository-consistent live mirroring remain unverified; no remote transfer API is enabled.
