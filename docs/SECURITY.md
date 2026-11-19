@@ -132,3 +132,8 @@ A selected-file upload must not produce an encrypted snapshot from a truncated r
 ## Viewer response data minimization
 
 The coarse read-only token must not receive all raw upstream Kopia metadata merely because it can query a read endpoint. Viewer status omits repository storage endpoints and local connection details. Viewer snapshot listings are reconstructed using an explicit allowlist of ID, timestamp and an abbreviated source-folder leaf; hostnames, operating-system usernames, full source paths, root object identifiers and arbitrary tags are excluded. This is a defense against unnecessary disclosure to a read-only dashboard, **not** a promise of complete anonymity: snapshot leaf labels, timestamps, IDs and configured Rclone remote names remain visible and may be sensitive. The privileged administrative token is required for the original full metadata response and all mutations. The server never treats a client-supplied role header as authoritative.
+
+
+## Private local snapshot-list client
+
+`backupctl list` authenticates using the existing 0600 token file and requests metadata over numeric-loopback HTTP only; redirecting requests or oversized responses fail closed. It never outputs full source paths, repository object roots, usernames, hostnames, tags or bearer tokens to stdout. Source labels and snapshot IDs may still contain sensitive information, so console histories and terminal capture must remain protected. The command does not read archived file data or request paid provider quota information. Both administrator and scoped viewer tokens may use it.

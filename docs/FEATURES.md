@@ -47,3 +47,6 @@ Credential resilience test: a wrong passphrase on a clean copied encrypted repos
 
 
 **Rclone interoperability regression:** Source-built Rclone local `copy` and `check` of synthetic encrypted Kopia repository data, followed by a new Kopia connection, full-content verification and byte-for-byte recovery from the mirror. Real S3/SFTP/NAS/cloud backends and repository-consistent live mirroring remain unverified; no remote transfer API is enabled.
+
+
+**Local snapshot inventory CLI:** `backupctl list` retrieves up to 100 recent snapshot IDs and sanitized source leaf labels using a private admin or read-only viewer token and strict loopback-only transport. Raw upstream paths, host/user identities, root object IDs and tags are not displayed.
