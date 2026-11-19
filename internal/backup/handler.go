@@ -19,7 +19,7 @@ import (
 )
 
 type Config struct {
-	Listen, Token, SourceRoot, RestoreRoot, KopiaBin, RcloneBin, WebDir string
+	Listen, Token, SourceRoot, RestoreRoot, MobileIngestRoot, KopiaBin, RcloneBin, WebDir string
 }
 type Handler struct {
 	cfg  Config
@@ -28,18 +28,20 @@ type Handler struct {
 	jobGate     chan struct{}
 	remoteGate  chan struct{}
 	restoreRoot string
+	mobileRoot  string
 	webDir      string
 }
 
 func ConfigFromEnv() (Config, error) {
 	cfg := Config{
-		Listen:      value("GCB_LISTEN", "127.0.0.1:8787"),
-		Token:       os.Getenv("GCB_API_TOKEN"),
-		SourceRoot:  os.Getenv("GCB_SOURCE_ROOT"),
-		RestoreRoot: os.Getenv("GCB_RESTORE_ROOT"),
-		KopiaBin:    value("GCB_KOPIA_BIN", "kopia"),
-		RcloneBin:   value("GCB_RCLONE_BIN", "rclone"),
-		WebDir:      os.Getenv("GCB_WEB_DIR"),
+		Listen:           value("GCB_LISTEN", "127.0.0.1:8787"),
+		Token:            os.Getenv("GCB_API_TOKEN"),
+		SourceRoot:       os.Getenv("GCB_SOURCE_ROOT"),
+		RestoreRoot:      os.Getenv("GCB_RESTORE_ROOT"),
+		MobileIngestRoot: os.Getenv("GCB_MOBILE_INGEST_ROOT"),
+		KopiaBin:         value("GCB_KOPIA_BIN", "kopia"),
+		RcloneBin:        value("GCB_RCLONE_BIN", "rclone"),
+		WebDir:           os.Getenv("GCB_WEB_DIR"),
 	}
 	if len(cfg.Token) < 32 {
 		return Config{}, errors.New("GCB_API_TOKEN must be at least 32 bytes; no default credentials")
@@ -99,7 +101,11 @@ func NewHandler(cfg Config) (http.Handler, error) {
 			return nil, errors.New("web root must contain an internal index.html")
 		}
 	}
-	h := &Handler{cfg: cfg, root: root, restoreRoot: restoreRoot, webDir: webDir, jobGate: make(chan struct{}, 1), remoteGate: make(chan struct{}, 1)}
+	mobileRoot, err := validateMobileRoot(root, cfg.MobileIngestRoot)
+	if err != nil {
+		return nil, err
+	}
+	h := &Handler{cfg: cfg, root: root, restoreRoot: restoreRoot, mobileRoot: mobileRoot, webDir: webDir, jobGate: make(chan struct{}, 1), remoteGate: make(chan struct{}, 1)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -110,6 +116,7 @@ func NewHandler(cfg Config) (http.Handler, error) {
 	mux.HandleFunc("GET /api/v1/remotes", h.authorize(h.remotes))
 	mux.HandleFunc("GET /api/v1/remotes/about", h.authorize(h.remoteCapacity))
 	mux.HandleFunc("POST /api/v1/snapshots", h.authorize(h.create))
+	mux.HandleFunc("POST /api/v1/mobile/files", h.authorize(h.mobileFile))
 	mux.HandleFunc("POST /api/v1/verify", h.authorize(h.verify))
 	mux.HandleFunc("POST /api/v1/restore", h.authorize(h.restore))
 	mux.HandleFunc("GET /api/v1/info", h.authorize(h.info))
@@ -169,7 +176,7 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 	respond(w, status, map[string]string{"error": msg})
 }
 func (h *Handler) info(w http.ResponseWriter, r *http.Request) {
-	respond(w, 200, map[string]any{"name": "GoreeCloud Backup", "version": "0.1.0-dev", "features": []string{"kopia-status", "snapshot-list", "snapshot-create", "rclone-remotes", "rclone-remote-capacity", "full-file-verify", "contained-restore"}, "sourceRoot": h.root, "restoreEnabled": h.restoreRoot != "" && restoreSandboxAvailable()})
+	respond(w, 200, map[string]any{"name": "GoreeCloud Backup", "version": "0.1.0-dev", "features": []string{"kopia-status", "snapshot-list", "snapshot-create", "rclone-remotes", "rclone-remote-capacity", "full-file-verify", "contained-restore"}, "sourceRoot": h.root, "restoreEnabled": h.restoreRoot != "" && restoreSandboxAvailable(), "mobileUploadEnabled": h.mobileRoot != ""})
 }
 func run(ctx context.Context, exe string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, exe, args...)

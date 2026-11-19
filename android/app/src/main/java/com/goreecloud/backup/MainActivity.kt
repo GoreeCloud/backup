@@ -1,6 +1,10 @@
 package com.goreecloud.backup
 
 import android.os.Bundle
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -59,11 +63,18 @@ private fun BackupScreen() {
     var selectedSnapshot by remember { mutableStateOf("") }
     var verifyConsent by remember { mutableStateOf(false) }
     var restoreConsent by remember { mutableStateOf(false) }
+    var uploadConsent by remember { mutableStateOf(false) }
+    var selectedDeviceFile by remember { mutableStateOf<Uri?>(null) }
     var resultNotice by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var session by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        selectedDeviceFile = uri
+        uploadConsent = false
+    }
 
     fun connectOrRefresh(base: String, secret: String) {
         if (busy) return
@@ -92,6 +103,7 @@ private fun BackupScreen() {
                     resultNotice = "Repository status refreshed."
                     verifyConsent = false
                     restoreConsent = false
+                    uploadConsent = false
                 }
             } catch (cause: Exception) {
                 if (generation == session) {
@@ -139,6 +151,37 @@ private fun BackupScreen() {
                 if (generation == session) {
                     error = cause.message ?: "Operation failed."
                     resultNotice = "The operation did not complete successfully."
+                }
+            } finally {
+                if (generation == session) busy = false
+            }
+        }
+    }
+
+    fun submitSelectedDeviceFile() {
+        val uri = selectedDeviceFile ?: return
+        val url = activeUrl ?: return
+        if (busy || !uploadConsent || activeToken.isBlank()) return
+        val secret = activeToken
+        val generation = session
+        busy = true
+        error = ""
+        resultNotice = "Backing up the selected Android document. Do not leave this screen."
+        scope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    uploadSelectedDocument(context.contentResolver, uri, url, secret)
+                }
+                if (generation == session) {
+                    resultNotice = "Kopia snapshot completed for ${result.optString("name").take(80)} (${result.optLong("bytes")} bytes). Verify and restore-test the backup before relying on it."
+                    selectedDeviceFile = null
+                    uploadConsent = false
+                }
+            } catch (cause: Exception) {
+                if (generation == session) {
+                    error = cause.message ?: "Selected-file backup failed."
+                    resultNotice = "Selected-file backup was not confirmed."
+                    uploadConsent = false
                 }
             } finally {
                 if (generation == session) busy = false
@@ -197,6 +240,8 @@ private fun BackupScreen() {
                                 selectedSnapshot = ""
                                 verifyConsent = false
                                 restoreConsent = false
+                                uploadConsent = false
+                                selectedDeviceFile = null
                                 resultNotice = ""
                                 error = ""
                             }
@@ -220,6 +265,34 @@ private fun BackupScreen() {
             data.notes.forEach { note ->
                 Text(note, fontSize = 12.sp, color = Soft)
             }
+            Card(colors = CardDefaults.cardColors(containerColor = Surface)) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Back up a selected Android file", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (data.mobileUploadEnabled) "Choose one document with Android's system picker. It is streamed over trusted HTTPS, snapshotted by Kopia and removed from temporary server staging. Maximum 32 MiB per selection."
+                        else "Selected-device-file backup is disabled until the server operator configures a private GCB_MOBILE_INGEST_ROOT.",
+                        color = Soft, fontSize = 13.sp
+                    )
+                    if (data.mobileUploadEnabled) {
+                        OutlinedButton(
+                            enabled = !busy,
+                            onClick = { filePicker.launch(arrayOf("*/*")) }
+                        ) { Text(if (selectedDeviceFile == null) "Choose Android document" else "Choose different document") }
+                        if (selectedDeviceFile != null) {
+                            Text("One document selected. Its local URI is not stored or displayed.", fontSize = 12.sp, color = Soft)
+                            ConsentRow(
+                                "I authorize uploading this one selected file to my configured backup server and understand network costs.",
+                                uploadConsent, !busy, { uploadConsent = it }
+                            )
+                            Button(
+                                enabled = !busy && data.repositoryConnected && uploadConsent,
+                                onClick = { submitSelectedDeviceFile() }
+                            ) { Text("Back up selected file") }
+                        }
+                    }
+                }
+            }
+
             Card(colors = CardDefaults.cardColors(containerColor = Surface)) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Recovery points", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
@@ -295,7 +368,7 @@ private fun BackupScreen() {
                 }
             }
             Text(
-                "Android device-file backup, unattended scheduling and background sync are not implemented. This client controls the self-hosted repository only.",
+                "Selected-file foreground backup is available only when enabled by your server. Automatic photo/gallery backup, bulk device backup, unattended scheduling and background sync are not implemented.",
                 color = Soft, fontSize = 12.sp
             )
         }

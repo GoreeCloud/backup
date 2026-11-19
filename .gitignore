@@ -2,6 +2,7 @@
 web/node_modules/
 web/dist/
 android/.gradle/
+android/.kotlin/
 android/**/build/
 .gradle/
 *.apk

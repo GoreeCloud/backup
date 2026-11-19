@@ -24,7 +24,7 @@ func main() {
 		Addr:              cfg.Listen,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
+		ReadTimeout:       2 * time.Minute,
 		WriteTimeout:      35 * time.Minute,
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    16 << 10,
