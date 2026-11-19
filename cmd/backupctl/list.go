@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -76,10 +77,21 @@ func executeList(args []string, stdout, stderr io.Writer) int {
 }
 
 func safeSnapshotDisplay(value string) string {
+	if len(value) > 4096 {
+		return "Protected snapshot"
+	}
 	normalized := strings.ReplaceAll(value, "\\", "/")
 	label := path.Base(strings.TrimRight(normalized, "/"))
 	if label == "" || label == "." || strings.HasSuffix(label, ":") {
 		label = "Protected snapshot"
+	}
+	// Reject bidirectional overrides and HTML-looking path components rather
+	// than displaying spoofed names in terminal/log output.
+	for _, r := range label {
+		if r == '<' || r == '>' || (r >= '\u202a' && r <= '\u202e') ||
+			(r >= '\u2066' && r <= '\u2069') {
+			return "Protected snapshot"
+		}
 	}
 	label = strings.Map(func(r rune) rune {
 		if unicode.IsControl(r) {
@@ -137,21 +149,56 @@ func listSnapshots(ctx context.Context, endpoint, token string, limit int) ([]sn
 	if json.Unmarshal(raw, &snapshots) != nil || snapshots == nil {
 		return nil, errors.New("malformed snapshot listing")
 	}
-	result := make([]snapshotLine, 0, limit)
-	for index := len(snapshots) - 1; index >= 0 && len(result) < limit; index-- {
-		item := snapshots[index]
+	// Kopia's listing order is not a recovery-freshness guarantee.
+	// Sort by actual reported dates and keep ties stable (newer list entries
+	// first). Undated records follow dated records, and repeated IDs are
+	// collapsed to their best dated record.
+	type datedSnapshot struct {
+		snapshotLine
+		instant time.Time
+		index   int
+	}
+	all := make([]datedSnapshot, 0, len(snapshots))
+	for index, item := range snapshots {
 		if !validSnapshotID(item.ID) {
 			continue
 		}
-		timestamp := "unknown"
+		stamp := "unknown"
+		var instant time.Time
 		if parsed, err := time.Parse(time.RFC3339Nano, item.StartTime); err == nil {
-			timestamp = parsed.UTC().Format(time.RFC3339)
+			instant = parsed.UTC()
+			stamp = instant.Format(time.RFC3339)
 		}
-		result = append(result, snapshotLine{
-			ID:        item.ID,
-			Timestamp: timestamp,
-			Label:     safeSnapshotDisplay(item.Source.Path),
+		all = append(all, datedSnapshot{
+			snapshotLine: snapshotLine{
+				ID: item.ID, Timestamp: stamp,
+				Label: safeSnapshotDisplay(item.Source.Path),
+			},
+			instant: instant,
+			index:   index,
 		})
+	}
+	sort.SliceStable(all, func(i, j int) bool {
+		a, b := all[i], all[j]
+		if a.instant.IsZero() != b.instant.IsZero() {
+			return !a.instant.IsZero()
+		}
+		if !a.instant.Equal(b.instant) {
+			return a.instant.After(b.instant)
+		}
+		return a.index > b.index
+	})
+	result := make([]snapshotLine, 0, limit)
+	seen := make(map[string]bool)
+	for _, candidate := range all {
+		if seen[candidate.ID] {
+			continue
+		}
+		seen[candidate.ID] = true
+		result = append(result, candidate.snapshotLine)
+		if len(result) >= limit {
+			break
+		}
 	}
 	return result, nil
 }
